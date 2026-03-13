@@ -1,0 +1,119 @@
+body {
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+}
+
+#wrapper {
+    overflow-x: hidden;
+    min-height: 100vh;
+}
+
+#sidebar-wrapper {
+    min-height: 100vh;
+    width: 2ada50px;
+    transition: margin 0.25s ease-out;
+    background-color: #1e1e2f !important;
+}
+
+#sidebar-wrapper .list-group-item {
+    font-size: 1.05rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.2s ease-in-out;
+}
+
+#sidebar-wrapper .list-group-item:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    padding-left: 2rem;
+}
+
+#page-content-wrapper {
+    min-width: 100vw;
+}
+
+body.sb-sidenav-toggled #wrapper #sidebar-wrapper {
+    margin-left: -250px;
+}
+
+@media (min-width: 768px) {
+    #sidebar-wrapper {
+        width: 250px;
+    }
+    #page-content-wrapper {
+        min-width: 0;
+        width: 100%;
+    }
+    body.sb-sidenav-toggled #wrapper #sidebar-wrapper {
+        margin-left: -250px;
+    }
+}
+
+.card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+}
+
+.stat-card.primary {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+}
+
+.stat-card.success {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    color: white;
+}
+
+.stat-card.danger {
+    background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%);
+    color: white;
+}
+
+/* Webcam wrapper styling */
+.video-canvas-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+    background: #000;
+}
+
+#webcam {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+#overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none; /* Let clicks pass through */
+}
+
+/* Custom Badges */
+.badge-present {
+    background-color: #e6f8eb;
+    color: #28a745;
+    border: 1px solid #c3e6cb;
+}
+
+.badge-late {
+    background-color: #fcf1f1;
+    color: #dc3545;
+    border: 1px solid #f5c6cb;
+}

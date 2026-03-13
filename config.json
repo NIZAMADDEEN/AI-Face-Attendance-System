@@ -1,0 +1,9 @@
+{
+    "admin_password": "admin",
+    "campus_coords": [
+        6.5244,
+        3.3792
+    ],
+    "allowable_radius_km": 0.5,
+    "class_start_time": "10:08:00"
+}

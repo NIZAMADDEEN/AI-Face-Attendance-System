@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}System Settings{% endblock %}
+
+{% block content %}
+<div class="pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-cog"></i> System Settings</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card p-4 shadow-sm">
+            <h5>Geo-Location Configuration</h5>
+            <p class="text-muted"><small>Set the central latitude and longitude for where attendance can be legally logged.</small></p>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="/settings">
+                <div class="mb-3">
+                    <label>Campus Latitude</label>
+                    <input type="number" step="any" name="lat" class="form-control" value="{{ config.campus_coords[0] }}" required>
+                </div>
+                <div class="mb-3">
+                    <label>Campus Longitude</label>
+                    <input type="number" step="any" name="lon" class="form-control" value="{{ config.campus_coords[1] }}" required>
+                </div>
+                <div class="mb-3">
+                    <label>Allowable Radius (Kilometers)</label>
+                    <input type="number" step="any" name="radius" class="form-control" value="{{ config.allowable_radius_km }}" required>
+                </div>
+                <div class="mb-3">
+                    <label>Class Start Time (HH:MM:SS)</label>
+                    <input type="time" step="1" name="time" class="form-control" value="{{ config.class_start_time }}" required>
+                </div>
+                <!-- Optional Password Change -->
+                <div class="mb-4 pt-3 border-top">
+                    <label class="text-danger"><i class="fas fa-key"></i> Change Admin Password (Leave blank to keep current)</label>
+                    <input type="text" name="password" class="form-control mt-1" placeholder="New Password">
+                </div>
+                <button type="submit" class="btn btn-success w-100">Update Settings</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card p-4 shadow-sm bg-light">
+            <h5>Current Boundary Map</h5>
+            <p><strong>Lat:</strong> {{ config.campus_coords[0] }}<br><strong>Lon:</strong> {{ config.campus_coords[1] }}</p>
+            <p>Students must be within <strong>{{ config.allowable_radius_km }}km</strong> of this point to scan successfully.</p>
+            <p class="text-info mt-3"><i class="fas fa-info-circle"></i> Default password is "password" unless changed.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

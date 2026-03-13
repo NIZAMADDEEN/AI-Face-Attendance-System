@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Dashboard Overview</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportReport()">
+            <i class="fas fa-download"></i> Export Today's Report
+        </button>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-header">Total Registered</div>
+            <div class="card-body">
+                <h3 class="card-title">{{ students|length }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-header">Present Today</div>
+            <div class="card-body">
+                <h3 class="card-title">{{ stats.present }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-header">Late Today</div>
+            <div class="card-body">
+                <h3 class="card-title">{{ stats.late }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger mb-3">
+            <div class="card-header">Absent Today</div>
+            <div class="card-body">
+                <h3 class="card-title">{{ stats.absent }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Student List -->
+<h2>Registered Students</h2>
+<div class="table-responsive">
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Registered At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students %}
+            <tr>
+                <td>{{ student.id }}</td>
+                <td>{{ student.student_id }}</td>
+                <td>{{ student.name }}</td>
+                <td>{{ student.email }}</td>
+                <td>{{ student.registered_at }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="text-center">No students registered yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function exportReport() {
+    fetch('/api/export_report')
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                alert("Report generated successfully at: " + data.file);
+            } else {
+                alert("Generation failed: " + data.message);
+            }
+        });
+}
+</script>
+{% endblock %}

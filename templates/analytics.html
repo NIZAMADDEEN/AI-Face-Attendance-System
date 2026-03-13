@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+
+{% block content %}
+<div class="pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Attendance Analytics</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card p-3 shadow-sm">
+            <h5 class="text-center">Today's Overview</h5>
+            <canvas id="dailyChart" height="250"></canvas>
+        </div>
+    </div>
+    
+    <!-- More charts could be added tracking weekly/monthly via additional API calls -->
+    <div class="col-md-6">
+        <div class="card p-3 shadow-sm bg-light text-center" style="height: 100%; display: flex; justify-content: center; align-items: center;">
+            <p class="text-muted"><i class="fas fa-chart-line fa-3x mb-3"></i><br>Historical charts would go here by querying daily aggregates over weeks.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('dailyChart').getContext('2d');
+    const chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Present', 'Late', 'Absent'],
+            datasets: [{
+                data: [{{ stats.present }}, {{ stats.late }}, {{ stats.absent }}],
+                backgroundColor: [
+                    'rgba(46, 204, 113, 0.8)',
+                    'rgba(241, 196, 15, 0.8)',
+                    'rgba(231, 76, 60, 0.8)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+        }
+    });
+</script>
+{% endblock %}

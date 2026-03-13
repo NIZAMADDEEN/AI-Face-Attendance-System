@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Live Face Scanner{% endblock %}
+
+{% block content %}
+<div class="row pt-4">
+    <div class="col-md-8 mx-auto text-center">
+        <h2>Live Attendance Scanner</h2>
+        <p class="text-muted">Look into the camera. Ensure you are within the campus premises.</p>
+        
+        <div class="card p-3 shadow-sm mx-auto" style="max-width: 640px;">
+            <video id="videoElement" autoplay playsinline width="100%" style="border-radius: 8px; transform: scaleX(-1);"></video>
+            <canvas id="canvasElement" style="display: none;"></canvas>
+            
+            <div class="mt-3">
+                <button id="toggleScanner" class="btn btn-primary btn-lg rounded-pill px-5">Start Scanner</button>
+            </div>
+            
+            <div id="logsBox" class="mt-3 text-start" style="height: 150px; overflow-y: auto; background: #f1f2f6; padding: 10px; border-radius: 8px;">
+                <div class="text-muted text-center" style="padding-top: 50px;">Scan logs will appear here</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const video = document.getElementById('videoElement');
+    const canvas = document.getElementById('canvasElement');
+    const context = canvas.getContext('2d');
+    const toggleBtn = document.getElementById('toggleScanner');
+    const logsBox = document.getElementById('logsBox');
+
+    let isScanning = false;
+    let scanInterval;
+    let cameraStream = null;
+    
+    // GPS Configuration (Sourced directly from Admin Settings)
+    let currentLat = {{ config.campus_coords[0] }};
+    let currentLon = {{ config.campus_coords[1] }};
+
+    async function startCamera() {
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = cameraStream;
+        } catch (err) {
+            console.error("Camera access denied.", err);
+            alert("Please allow camera access.");
+        }
+    }
+
+    function stopCamera() {
+        if(cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+        }
+    }
+
+    function appendLog(msg, type='info') {
+        const div = document.createElement('div');
+        div.className = `alert alert-${type} py-1 px-2 m-1`;
+        div.style.fontSize = '14px';
+        div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        logsBox.prepend(div);
+    }
+
+    function scanFrame() {
+        if(!isScanning) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const dataURL = canvas.toDataURL('image/jpeg', 0.7); // compress slightly
+        
+        fetch('/api/recognize', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                image: dataURL,
+                lat: currentLat,
+                lon: currentLon
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success && data.logs.length > 0) {
+                data.logs.forEach(log => {
+                    let text = `${log.student_id ? log.student_id : 'Unknown face'} - ${log.message}`;
+                    if(!log.location_valid) text += " (Location invalid)";
+                    appendLog(text, log.success ? 'success' : 'danger');
+                });
+            }
+        }).catch(err => console.log(err));
+    }
+
+    toggleBtn.addEventListener('click', async () => {
+        if(isScanning) {
+            // Stop
+            isScanning = false;
+            clearInterval(scanInterval);
+            stopCamera();
+            toggleBtn.innerText = "Start Scanner";
+            toggleBtn.className = "btn btn-primary btn-lg rounded-pill px-5";
+        } else {
+            // Start
+            await startCamera();
+            logsBox.innerHTML = ''; // clear logs
+            isScanning = true;
+            toggleBtn.innerText = "Stop Scanner";
+            toggleBtn.className = "btn btn-danger btn-lg rounded-pill px-5";
+            
+            // Send frame every 3 seconds to avoid spamming server
+            scanInterval = setInterval(scanFrame, 3000);
+        }
+    });
+</script>
+{% endblock %}
