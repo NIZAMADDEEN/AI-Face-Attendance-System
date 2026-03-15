@@ -43,7 +43,7 @@ Ensure your MySQL server is running. If your MySQL credentials are not `root` an
 ```python
 DB_HOST = "localhost"
 DB_USER = "root"
-DB_PASSWORD = "your_password_here"
+DB_PASSWORD = ""
 ```
 
 ### 4. Start the Application
