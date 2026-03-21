@@ -64,6 +64,11 @@
     function scanFrame() {
         if(!isScanning) return;
 
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+            console.warn("Video dimensions not ready yet.");
+            return;
+        }
+
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -81,14 +86,23 @@
         })
         .then(res => res.json())
         .then(data => {
-            if(data.success && data.logs.length > 0) {
-                data.logs.forEach(log => {
-                    let text = `${log.student_id ? log.student_id : 'Unknown face'} - ${log.message}`;
-                    if(!log.location_valid) text += " (Location invalid)";
-                    appendLog(text, log.success ? 'success' : 'danger');
-                });
+            if(data.success) {
+                if (data.logs.length > 0) {
+                    data.logs.forEach(log => {
+                        let text = `${log.student_id ? log.student_id : 'Unknown face'} - ${log.message}`;
+                        if(!log.location_valid) text += " (Location invalid)";
+                        appendLog(text, log.success ? 'success' : 'danger');
+                    });
+                } else if (data.count === 0) {
+                    // console.log("No faces detected in frame.");
+                }
+            } else {
+                appendLog(`Server error: ${data.message}`, 'warning');
             }
-        }).catch(err => console.log(err));
+        }).catch(err => {
+            console.error("Scan error:", err);
+            appendLog(`Connection error: ${err.message}`, 'warning');
+        });
     }
 
     toggleBtn.addEventListener('click', async () => {
@@ -99,16 +113,29 @@
             stopCamera();
             toggleBtn.innerText = "Start Scanner";
             toggleBtn.className = "btn btn-primary btn-lg rounded-pill px-5";
+            toggleBtn.disabled = false;
         } else {
             // Start
-            await startCamera();
-            logsBox.innerHTML = ''; // clear logs
-            isScanning = true;
-            toggleBtn.innerText = "Stop Scanner";
-            toggleBtn.className = "btn btn-danger btn-lg rounded-pill px-5";
+            const originalText = toggleBtn.innerText;
+            toggleBtn.innerText = "Initializing...";
+            toggleBtn.disabled = true;
             
-            // Send frame every 3 seconds to avoid spamming server
-            scanInterval = setInterval(scanFrame, 3000);
+            await startCamera();
+            
+            if (cameraStream) {
+                logsBox.innerHTML = ''; // clear logs
+                isScanning = true;
+                toggleBtn.innerText = "Stop Scanner";
+                toggleBtn.className = "btn btn-danger btn-lg rounded-pill px-5";
+                toggleBtn.disabled = false;
+                
+                // Send frame every 3 seconds to avoid spamming server
+                scanInterval = setInterval(scanFrame, 3000);
+            } else {
+                toggleBtn.innerText = originalText;
+                toggleBtn.disabled = false;
+                appendLog("Failed to start camera. Please check permissions.", "danger");
+            }
         }
     });
 </script>

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash, send_file
 from functools import wraps
 import os
 import cv2
@@ -12,6 +12,9 @@ import database
 from ai import recognize_engine
 from ai import train_model as trainer
 import reports.auto_report as auto_report
+from reports.auto_report import generate_pdf_report
+import traceback
+from werkzeug.exceptions import HTTPException
 
 app = Flask(__name__)
 app.secret_key = "super_secret_attendance_key"
@@ -39,6 +42,17 @@ def login_required(f):
             return redirect(url_for('login', next=request.url))
         return f(*args, **kwargs)
     return decorated_function
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    if isinstance(e, HTTPException):
+        return e
+    return jsonify({
+        "success": False, 
+        "message": f"Server Exception: {str(e)}", 
+        "traceback": traceback.format_exc()
+    }), 500
+
 
 @app.route('/')
 def index():
@@ -123,12 +137,19 @@ def save_image():
         return jsonify({"success": False, "message": "Missing data"}), 400
         
     # Extract base64 part
-    header, encoded = image_b64.split(",", 1)
-    img_data = base64.b64decode(encoded)
-    
-    # Check for duplicate face before saving
-    nparr = np.frombuffer(img_data, np.uint8)
-    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    try:
+        header, encoded = image_b64.split(",", 1)
+        img_data = base64.b64decode(encoded)
+        
+        # Check for duplicate face before saving
+        nparr = np.frombuffer(img_data, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if frame is None:
+            return jsonify({"success": False, "message": "Failed to decode image. Frame is empty."}), 400
+            
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Invalid image data: {str(e)}"}), 400
     
     # recognize faces does not need anti spoofing during reg capture
     results = recognize_engine.recognize_faces_in_frame(frame, enforce_anti_spoofing=False)
@@ -197,10 +218,16 @@ def recognize():
             location_valid = False
     
     # Decode base64 to numpy array for OpenCV
-    header, encoded = image_b64.split(",", 1)
-    img_data = base64.b64decode(encoded)
-    nparr = np.frombuffer(img_data, np.uint8)
-    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    try:
+        header, encoded = image_b64.split(",", 1)
+        img_data = base64.b64decode(encoded)
+        nparr = np.frombuffer(img_data, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if frame is None:
+             return jsonify({"success": False, "message": "Failed to decode image. Frame is empty."})
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Invalid image data: {str(e)}"})
     
     results = recognize_engine.recognize_faces_in_frame(frame, enforce_anti_spoofing=True)
     
@@ -254,6 +281,18 @@ def export_report():
     if filepath:
         return jsonify({"success": True, "file": filepath})
     return jsonify({"success": False, "message": "No data or export failed."})
+
+@app.route('/api/export_pdf/<report_type>')
+@login_required
+def export_pdf(report_type):
+    """Generates and returns export path for attendance PDF (daily/weekly/monthly)"""
+    if report_type not in ['daily', 'weekly', 'monthly']:
+        return jsonify({"success": False, "message": "Invalid report type."}), 400
+        
+    filepath = generate_pdf_report(report_type)
+    if filepath:
+        return send_file(filepath, as_attachment=True)
+    return jsonify({"success": False, "message": f"No data found for {report_type} report, or export failed."})
 
 if __name__ == '__main__':
     database.initialize_database()

@@ -5,8 +5,18 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Dashboard Overview</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="dropdown me-2">
+            <button class="btn btn-sm btn-outline-danger dropdown-toggle" type="button" id="pdfDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-file-pdf"></i> Export PDF
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="pdfDropdown">
+                <li><a class="dropdown-item" href="#" onclick="exportPDF('daily')">Daily Report</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportPDF('weekly')">Weekly Report</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportPDF('monthly')">Monthly Report</a></li>
+            </ul>
+        </div>
         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportReport()">
-            <i class="fas fa-download"></i> Export Today's Report
+            <i class="fas fa-file-csv"></i> Export Today's CSV
         </button>
     </div>
 </div>
@@ -47,6 +57,58 @@
     </div>
 </div>
 
+<!-- Attendance Bar Chart -->
+<div class="row mb-4">
+    <div class="col-md-8 mx-auto">
+        <div class="card p-3 shadow-sm">
+            <h5 class="text-center">Today's Attendance Overview</h5>
+            <div style="position: relative; height: 300px; width: 100%;">
+                <canvas id="attendanceChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const ctx = document.getElementById('attendanceChart').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: ['Present', 'Late', 'Absent'],
+        datasets: [{
+            label: 'Number of Students',
+            data: [{{ stats.present }}, {{ stats.late }}, {{ stats.absent }}],
+            backgroundColor: [
+                'rgba(46, 204, 113, 0.8)',
+                'rgba(241, 196, 15, 0.8)',
+                'rgba(231, 76, 60, 0.8)'
+            ],
+            borderColor: [
+                'rgba(39, 174, 96, 1)',
+                'rgba(243, 156, 18, 1)',
+                'rgba(192, 57, 43, 1)'
+            ],
+            borderWidth: 2,
+            borderRadius: 6
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: { stepSize: 1 }
+            }
+        }
+    }
+});
+</script>
+
 <!-- Student List -->
 <h2>Registered Students</h2>
 <div class="table-responsive">
@@ -84,10 +146,31 @@ function exportReport() {
         .then(res => res.json())
         .then(data => {
             if(data.success) {
-                alert("Report generated successfully at: " + data.file);
+                alert("CSV Report generated successfully at: " + data.file);
             } else {
                 alert("Generation failed: " + data.message);
             }
+        });
+}
+
+function exportPDF(reportType) {
+    fetch(`/api/export_pdf/${reportType}`)
+        .then(res => {
+            if (res.headers.get('content-type').includes('application/json')) {
+                return res.json().then(data => alert("PDF Generation failed: " + data.message));
+            }
+            return res.blob().then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Attendance_${reportType}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            });
+        }).catch(err => {
+            alert("Error downloading PDF: " + err);
         });
 }
 </script>

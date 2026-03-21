@@ -136,7 +136,11 @@ def log_attendance(student_id, current_time, class_start_time, location_valid=Tr
         # Fetch the student name for personalized logging
         cursor.execute("SELECT name FROM students WHERE student_id = %s", (student_id,))
         student_record = cursor.fetchone()
-        student_name = student_record['name'] if student_record else "Unknown Name"
+        
+        if not student_record:
+            return False, {"status": "Error", "message": f"Model detected unregistered ID: {student_id}. Please delete from dataset or re-register."}
+            
+        student_name = student_record['name']
 
         # Check if log exists for today
         cursor.execute("SELECT * FROM attendance_logs WHERE student_id = %s AND date = %s", (student_id, current_date))

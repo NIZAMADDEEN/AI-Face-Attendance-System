@@ -39,12 +39,8 @@ def recognize_faces_in_frame(frame, enforce_anti_spoofing=True):
     if len(known_data["encodings"]) == 0:
         return results
 
-    # Best practice is to scale down frame for faster processing
-    # but we will assume standard webcam resolution (e.g. 640x480)
-    # rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    
-    # Actually, face_recognition expects RGB format
-    rgb_frame = np.ascontiguousarray(frame[:, :, ::-1])
+    # Use cv2 for reliable BGR to RGB conversion
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     
     # Detect face boxes
     boxes = face_recognition.face_locations(rgb_frame, model="hog")

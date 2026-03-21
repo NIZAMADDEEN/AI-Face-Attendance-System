@@ -43,7 +43,7 @@
             <!-- Sidebar Navigation -->
             <nav class="col-md-2 d-none d-md-block sidebar">
                 <div class="sidebar-sticky">
-                    <h4 class="text-center mb-4">AI System</h4>
+                    <h4 class="text-center mb-4">Smart Attendance System</h4>
                     <ul class="nav flex-column">
                         {% if session.get('admin_logged_in') %}
                         <li class="nav-item">
@@ -61,12 +61,13 @@
                                 <i class="fas fa-cog me-2"></i> Settings
                             </a>
                         </li>
-                        {% endif %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.path == '/register' %}active{% endif %}" href="/register">
                                 <i class="fas fa-user-plus me-2"></i> Register Student
                             </a>
                         </li>
+                        {% endif %}
+                        {% if not session.get('admin_logged_in') %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.path == '/live_feed' %}active{% endif %}" href="/live_feed">
                                 <i class="fas fa-camera me-2"></i> Live Scanner
@@ -77,6 +78,7 @@
                                 <i class="fas fa-user-graduate me-2"></i> Student Portal
                             </a>
                         </li>
+                        {% endif %}
                         
                         <div class="mt-5 border-top pt-3"></div>
                         {% if session.get('admin_logged_in') %}
