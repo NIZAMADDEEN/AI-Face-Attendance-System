@@ -5,7 +5,9 @@ A complete, production-ready attendance management system powered by Artificial 
 ## ✨ Core Features
 
 *   **Live Facial Recognition:** Uses deep learning algorithms to match camera feeds instantly against an automated dataset generator.
+*   **Visual Feedback Outlines:** Real-time **Blue (Recognized)** and **Red (Unknown)** rectangles drawn around faces with the **Student's Full Name** displayed for instant verification.
 *   **Anti-Spoofing Protocols:** Checks for blink landmarks using dlib and Eye Aspect Ratio (EAR) mathematics to prevent users from presenting static photos.
+*   **Centralized AI Training:** A dedicated **"Train AI Model"** button in the Admin Dashboard allows updating the recognition engine at any time.
 *   **Dynamic Geolocation Fencing:** Enforces physical attendance by cross-checking browser coordinates against configurable campus boundaries.
 *   **Secure Admin Dashboard:** A locked-down layout for administrators to monitor daily analytics, view registered students, and export CSV reports.
 *   **Interactive Settings Portal:** Change system GPS configuration, allowable radus limits, class start times, and admin passwords directly from the web browser! (No code restarts required).
@@ -31,8 +33,21 @@ Ensure you have the following installed on your machine:
 *   MySQL Server (Locally or Remote)
 *   Visual Studio C++ Build Tools (Required on Windows to compile `dlib` & `CMake`).
 
-### 2. Install Dependencies
-Clone the repository and install the standard python libraries:
+### 2. Setup Virtual Environment
+It is recommended to use a virtual environment to manage dependencies:
+```bash
+# Create venv
+python -m venv venv
+
+# Activate venv (Windows)
+.\venv\Scripts\activate
+
+# Activate venv (Mac/Linux)
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+Install the required Python libraries:
 ```bash
 pip install -r requirements.txt
 ```
@@ -66,17 +81,19 @@ python app.py
 1. Access the public **Register Student** tab.
 2. Provide the Student ID, Name, and Email Address.
 3. Allow the browser to access the webcam, and click **Capture Face** until 10 pictures are processed into the `dataset/` directory.
-4. Click **Train AI Model** to convert these photos into mathematical face encodings!
-*(Note: Admins have a hidden option to bypass the webcam if a student's webcam data must be manually managed).*
+4. Click **Finalize Registration** to save the student to the database.
+*(Note: You can then train the model for all new students at once from the Dashboard).*
 
-### 📸 Live Scanning
+### 📸 Live Scanning & Feedback
 1. Go to **Live Scanner** and hit Start.
 2. Step in front of the camera.
-3. The AI will cross-verify your face, enforce Anti-Spoofing checks, and validate your HTML5 GPS coordinates!
-4. It will return a green **"Attendance logged for [Name] (Present)"**. If you scan again later, it will log your strict **Exit** time!
+3. Real-time **Visual Feedback**: The system draws a **Blue box** with your **Full Name** when recognized, or a **Red box** with **"Unknown"** if not found.
+4. The AI cross-verifies your face, enforces Anti-Spoofing, and validates GPS coordinates!
+5. It will return a green **"Attendance logged for [Name] (Present)"**. If you scan again later, it will log your strict **Exit** time!
 
-### 📊 Reviewing Data
-*   **Admin Dashboard:** Log in to see Chart.js visual statistics outlining precise Late, Absent, and Present configurations. Click "Export Today's Report" to immediately save a CSV data dump!
+### 📊 Admin Analytics & Model Management
+*   **Admin Dashboard:** Log in to see Chart.js visual statistics. Click the red **"Train AI Model"** button to update the recognition engine after registering new students.
+*   **Export Reports:** Click "Export Today's Report" (CSV) or use the PDF dropdown for detailed daily/weekly/monthly reports.
 *   **Student Portal:** Students can search their ID to pull a real-time table of their personal history.
 
 ## 📁 Repository Architecture
