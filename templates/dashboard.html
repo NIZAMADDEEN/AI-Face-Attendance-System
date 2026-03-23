@@ -18,6 +18,9 @@
         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportReport()">
             <i class="fas fa-file-csv"></i> Export Today's CSV
         </button>
+        <button type="button" class="btn btn-sm btn-danger ms-2" id="trainBtn" onclick="trainModel()">
+            <i class="fas fa-brain"></i> Train AI Model
+        </button>
     </div>
 </div>
 
@@ -171,6 +174,33 @@ function exportPDF(reportType) {
             });
         }).catch(err => {
             alert("Error downloading PDF: " + err);
+        });
+}
+
+function trainModel() {
+    const btn = document.getElementById('trainBtn');
+    const originalContent = btn.innerHTML;
+    
+    if (!confirm("This will retrain the AI model with all images in the dataset. This might take a moment. Proceed?")) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Training...';
+
+    fetch('/api/train', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert("Success: " + data.message);
+            } else {
+                alert("Error: " + data.message);
+            }
+        })
+        .catch(err => {
+            alert("Connection error: " + err.message);
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
         });
 }
 </script>

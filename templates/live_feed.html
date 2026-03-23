@@ -8,7 +8,10 @@
         <p class="text-muted">Look into the camera. Ensure you are within the campus premises.</p>
         
         <div class="card p-3 shadow-sm mx-auto" style="max-width: 640px;">
-            <video id="videoElement" autoplay playsinline width="100%" style="border-radius: 8px; transform: scaleX(-1);"></video>
+            <div style="position: relative; width: 100%;">
+                <video id="videoElement" autoplay playsinline width="100%" style="border-radius: 8px; transform: scaleX(-1);"></video>
+                <canvas id="overlayCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
+            </div>
             <canvas id="canvasElement" style="display: none;"></canvas>
             
             <div class="mt-3">
@@ -26,6 +29,8 @@
     const video = document.getElementById('videoElement');
     const canvas = document.getElementById('canvasElement');
     const context = canvas.getContext('2d');
+    const overlayCanvas = document.getElementById('overlayCanvas');
+    const overlayCtx = overlayCanvas.getContext('2d');
     const toggleBtn = document.getElementById('toggleScanner');
     const logsBox = document.getElementById('logsBox');
 
@@ -51,6 +56,7 @@
         if(cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
         }
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     }
 
     function appendLog(msg, type='info') {
@@ -59,6 +65,45 @@
         div.style.fontSize = '14px';
         div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
         logsBox.prepend(div);
+    }
+
+    function drawFaceRects(logs, imgWidth, imgHeight) {
+        // Clear previous silhouettes
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        
+        // Sync canvas resolution with video displayed size
+        overlayCanvas.width = video.videoWidth;
+        overlayCanvas.height = video.videoHeight;
+
+        const scaleX = overlayCanvas.width / imgWidth;
+        const scaleY = overlayCanvas.height / imgHeight;
+
+        logs.forEach(log => {
+            if (!log.box) return;
+            const [top, right, bottom, left] = log.box;
+            
+            const width = (right - left) * scaleX;
+            const height = (bottom - top) * scaleY;
+            
+            // Manual mirroring: Video is flipped via CSS scaleX(-1), but canvas is NOT.
+            // So we subtract from width to align.
+            const x = overlayCanvas.width - (left * scaleX) - width;
+            const y = top * scaleY;
+
+            // Rectangle styling
+            overlayCtx.lineWidth = 4;
+            // Blue for success, Red for Unknown or Spoof
+            const isRecognized = log.student_id && log.student_id !== "Unknown" && log.success;
+            overlayCtx.strokeStyle = isRecognized ? "#007bff" : "#dc3545"; 
+            
+            overlayCtx.strokeRect(x, y, width, height);
+
+            // Text Label
+            overlayCtx.fillStyle = overlayCtx.strokeStyle;
+            overlayCtx.font = "bold 18px Arial";
+            const label = log.student_name || "Unknown";
+            overlayCtx.fillText(label, x, y > 25 ? y - 10 : y + height + 20);
+        });
     }
 
     function scanFrame() {
@@ -87,14 +132,15 @@
         .then(res => res.json())
         .then(data => {
             if(data.success) {
+                // Draw rectangles on overlay
+                drawFaceRects(data.logs, canvas.width, canvas.height);
+
                 if (data.logs.length > 0) {
                     data.logs.forEach(log => {
-                        let text = `${log.student_id ? log.student_id : 'Unknown face'} - ${log.message}`;
+                        let text = `${log.student_name !== 'Unknown' ? log.student_name : 'Unknown face'} - ${log.message}`;
                         if(!log.location_valid) text += " (Location invalid)";
                         appendLog(text, log.success ? 'success' : 'danger');
                     });
-                } else if (data.count === 0) {
-                    // console.log("No faces detected in frame.");
                 }
             } else {
                 appendLog(`Server error: ${data.message}`, 'warning');

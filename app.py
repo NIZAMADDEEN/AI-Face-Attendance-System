@@ -180,6 +180,7 @@ def save_image():
     return jsonify({"success": True, "message": "Image saved.", "count": img_count + 1})
 
 @app.route('/api/train', methods=['POST'])
+@login_required
 def train():
     """Triggers model retraining from dataset folder"""
     success = trainer.train_model()
@@ -235,6 +236,12 @@ def recognize():
     
     for face in results:
         student_id = face['name']
+        student_name = "Unknown"
+        if student_id != "Unknown":
+            student = database.get_student(student_id)
+            if student:
+                student_name = student['name']
+
         if student_id != "Unknown" and not face['spoof']:
             # Log attendance using dynamic class start time
             class_start = datetime.strptime(config['class_start_time'], "%H:%M:%S")
@@ -243,11 +250,31 @@ def recognize():
             # msg_data now potentially comes back as a dict with status and message
             msg_text = msg_data['message'] if isinstance(msg_data, dict) else msg_data
             
-            logs.append({"student_id": student_id, "success": success, "message": msg_text, "location_valid": location_valid})
+            logs.append({
+                "student_id": student_id,
+                "student_name": student_name,
+                "success": success, 
+                "message": msg_text, 
+                "location_valid": location_valid,
+                "box": face['box']
+            })
         elif face['spoof']:
-            logs.append({"student_id": student_id, "success": False, "message": "Spoof verification failed. Try again.", "location_valid": location_valid})
+            logs.append({
+                "student_id": student_id,
+                "student_name": student_name,
+                "success": False, 
+                "message": "Spoof verification failed. Try again.", 
+                "location_valid": location_valid,
+                "box": face['box']
+            })
         else:
-            logs.append({"name": "Unknown", "success": False, "message": "Face not recognized."})
+            logs.append({
+                "student_id": "Unknown",
+                "student_name": "Unknown", 
+                "success": False, 
+                "message": "Face not recognized.",
+                "box": face['box']
+            })
             
     return jsonify({"success": True, "logs": logs, "count": len(results)})
 

@@ -46,3 +46,18 @@ test_img_format*.py
 
 # Config (may contain sensitive settings)
 config.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+ENV/
+env/
+
+# Others
+*.sqlite3
+*.log
