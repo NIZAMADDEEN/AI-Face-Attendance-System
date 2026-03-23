@@ -35,7 +35,11 @@
                 </div>
                 <div class="mb-3">
                     <label>Class Start Time (HH:MM:SS)</label>
-                    <input type="time" step="1" name="time" class="form-control" value="{{ config.class_start_time }}" required>
+                    <input type="time" step="1" name="time_start" class="form-control" value="{{ config.class_start_time }}" required>
+                </div>
+                <div class="mb-3">
+                    <label>Class Stop Time (HH:MM:SS)</label>
+                    <input type="time" step="1" name="time_stop" class="form-control" value="{{ config.class_stop_time }}" required>
                 </div>
                 <!-- Optional Password Change -->
                 <div class="mb-4 pt-3 border-top">

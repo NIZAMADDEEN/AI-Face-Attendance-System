@@ -28,7 +28,8 @@ def load_config() -> dict:
         "admin_password": "password",
         "campus_coords": [40.7128, -74.0060],
         "allowable_radius_km": 0.5,
-        "class_start_time": "09:00:00"
+        "class_start_time": "09:00:00",
+        "class_stop_time": "11:00:00"
     }
 
 def save_config(config_data):
@@ -82,7 +83,8 @@ def settings():
         try:
             config['campus_coords'] = [float(request.form.get('lat')), float(request.form.get('lon'))]
             config['allowable_radius_km'] = float(request.form.get('radius'))
-            config['class_start_time'] = request.form.get('time')
+            config['class_start_time'] = request.form.get('time_start')
+            config['class_stop_time'] = request.form.get('time_stop')
             
             new_password = request.form.get('password')
             if new_password and new_password.strip():
@@ -217,6 +219,14 @@ def recognize():
         distance = geodesic(tuple(config['campus_coords']), user_coords).km
         if distance > config['allowable_radius_km']:
             location_valid = False
+            
+    # Class Time Window validation (Start and Stop) - parsed for loop use
+    class_start = datetime.strptime(config['class_start_time'], "%H:%M:%S").replace(
+        year=current_time.year, month=current_time.month, day=current_time.day
+    )
+    class_stop = datetime.strptime(config['class_stop_time'], "%H:%M:%S").replace(
+        year=current_time.year, month=current_time.month, day=current_time.day
+    )
     
     # Decode base64 to numpy array for OpenCV
     try:
@@ -244,12 +254,17 @@ def recognize():
 
         if student_id != "Unknown" and not face['spoof']:
             # Log attendance using dynamic class start time
-            class_start = datetime.strptime(config['class_start_time'], "%H:%M:%S")
             success, msg_data = database.log_attendance(student_id, current_time, class_start, location_valid)
             
             # msg_data now potentially comes back as a dict with status and message
             msg_text = msg_data['message'] if isinstance(msg_data, dict) else msg_data
             
+            # Personalize message if late (after stop time)
+            if current_time > class_stop:
+                msg_text = f"{student_name}, you are late, class is over."
+            elif current_time < class_start:
+                msg_text = f"{student_name}, class has not started yet (Starts at {config['class_start_time']})."
+
             logs.append({
                 "student_id": student_id,
                 "student_name": student_name,
