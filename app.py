@@ -267,14 +267,12 @@ def recognize():
                 student_name = student['name']
 
         if student_id != "Unknown" and not face['spoof']:
-            # Log attendance using dynamic class start time
-            success, msg_data = database.log_attendance(student_id, current_time, class_start, location_valid)
-            
-            # msg_data now potentially comes back as a dict with status and message
-            msg_text = msg_data['message'] if isinstance(msg_data, dict) else msg_data
-            
-            # Personalize message if inactive
-            if not is_active:
+            if is_active:
+                # Log attendance using dynamic class start time
+                success, msg_data = database.log_attendance(student_id, current_time, class_start, location_valid)
+                msg_text = msg_data['message'] if isinstance(msg_data, dict) else msg_data
+            else:
+                success = False
                 if is_over:
                     msg_text = f"{student_name}, class is over."
                 else:
