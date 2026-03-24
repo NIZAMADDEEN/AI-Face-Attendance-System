@@ -4,7 +4,7 @@
         6.5244,
         3.3792
     ],
-    "allowable_radius_km": 0.5,
-    "class_start_time": "15:20:00",
-    "class_stop_time": "15:50:00"
+    "allowable_radius_km": 1.0,
+    "class_start_time": "00:33:00",
+    "class_stop_time": "01:17:00"
 }

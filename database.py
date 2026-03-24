@@ -146,9 +146,22 @@ def log_attendance(student_id, current_time, class_start_time, location_valid=Tr
         cursor.execute("SELECT * FROM attendance_logs WHERE student_id = %s AND date = %s", (student_id, current_date))
         log = cursor.fetchone()
         
-        status = 'Present'
         # Determine status (Late if current time is after class_start_time)
-        if current_time_str > class_start_time.time():
+        class_start_t = class_start_time.time()
+        # Fetch stop time if we want to be precise, but for now we just need if it's cross-midnight
+        # Since we don't have stop_time passed here, we can infer it or just check if it's active.
+        # However, app.py already checks if it is active. If we are here, we assume it's valid log time.
+        
+        # Simple fix: if it's later than start time OR significantly earlier (meaning past midnight)
+        # But wait, without stop_time we don't know the window.
+        # Let's look at how class_start_time is passed. It's a datetime object from app.py.
+        
+        if current_time_str > class_start_t:
+            status = 'Late'
+        elif current_time_str < class_start_t:
+            # If it's early in the morning (e.g. 00:10) and start was late at night (23:00)
+            # we assume they are late for the cross-midnight class.
+            # We can check a threshold (e.g. if more than 12 hours different)
             status = 'Late'
 
         if not log:

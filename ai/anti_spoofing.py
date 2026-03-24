@@ -22,18 +22,12 @@ def calculate_ear(eye):
 def is_spoof(landmarks):
     """
     Basic liveness/anti-spoofing check using Eye Aspect Ratio (EAR).
-    A highly static EAR across time or mathematically perfect photos often
-    lack natural variance.
-    
-    In a single frame context (like an HTTP POST), it's difficult to prove an active blink.
-    This function will check if EAR is within realistic bounds for a human eye,
-    rejecting extreme anomalies (such as 2D flat masks that deform).
-    
-    For full blink detection, temporal tracking across multiple frames is required.
+    Returns (bool, str): (is_spoof_detected, reason_message)
     """
     try:
         if 'left_eye' not in landmarks or 'right_eye' not in landmarks:
-            return True # Missing landmarks, consider spoof or bad quality
+            # Missing landmarks usually means the face is too far or blurry
+            return True, "Face too far or low quality, cannot verify liveness."
             
         left_eye = landmarks['left_eye']
         right_eye = landmarks['right_eye']
@@ -42,17 +36,11 @@ def is_spoof(landmarks):
         right_EAR = calculate_ear(right_eye)
         average_EAR = (left_EAR + right_EAR) / 2.0
         
-        # A normal human EAR is typically between 0.15 (blinking/squinting) and 0.35 (wide open)
-        # We can implement a basic sanity check
+        # A normal human EAR is typically between 0.15 and 0.35
         if average_EAR < 0.1 or average_EAR > 0.45:
-            # Extreme EAR values might mean malformed face, mask, or extreme angle
-            # In a strict environment, return True (is spoof)
-            return False # Setting to False initially to not block valid partial blinks from webcam captures, can be hardened
+            return True, "Liveness anomaly detected (Check lighting or distance)."
             
-        # Optional: Further heuristic checks on face bounds can be added here
-        
-        return False # Not a spoof
+        return False, "Liveness verified."
     except Exception as e:
-        print(f"Anti-spoofing error: {e}")
-        return True # Default to secure state on error
+        return True, f"Anti-spoofing error: {str(e)}"
 

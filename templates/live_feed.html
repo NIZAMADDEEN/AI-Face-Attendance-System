@@ -101,7 +101,7 @@
             // Text Label
             overlayCtx.fillStyle = overlayCtx.strokeStyle;
             overlayCtx.font = "bold 18px Arial";
-            const label = log.student_name || "Unknown";
+            const label = log.student_name || "Student not in this Class";
             overlayCtx.fillText(label, x, y > 25 ? y - 10 : y + height + 20);
         });
     }
@@ -137,7 +137,7 @@
 
                 if (data.logs.length > 0) {
                     data.logs.forEach(log => {
-                        let text = `${log.student_name !== 'Unknown' ? log.student_name : 'Unknown face'} - ${log.message}`;
+                        let text = `${log.student_name !== 'Student not in this Class' ? log.student_name : 'Face detected'} - ${log.message}`;
                         if(!log.location_valid) text += " (Location invalid)";
                         appendLog(text, log.success ? 'success' : 'danger');
                     });

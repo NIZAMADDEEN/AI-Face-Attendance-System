@@ -220,13 +220,27 @@ def recognize():
         if distance > config['allowable_radius_km']:
             location_valid = False
             
-    # Class Time Window validation (Start and Stop) - parsed for loop use
-    class_start = datetime.strptime(config['class_start_time'], "%H:%M:%S").replace(
-        year=current_time.year, month=current_time.month, day=current_time.day
-    )
-    class_stop = datetime.strptime(config['class_stop_time'], "%H:%M:%S").replace(
-        year=current_time.year, month=current_time.month, day=current_time.day
-    )
+    # Class Time Window validation (Start and Stop)
+    current_time_only = current_time.time()
+    class_start_time = datetime.strptime(config['class_start_time'], "%H:%M:%S").time()
+    class_stop_time = datetime.strptime(config['class_stop_time'], "%H:%M:%S").time()
+
+    # Determine if class is currently active (handling midnight wrap)
+    if class_start_time <= class_stop_time:
+        is_active = class_start_time <= current_time_only <= class_stop_time
+        is_over = current_time_only > class_stop_time
+        is_early = current_time_only < class_start_time
+    else:
+        # Cross-midnight case (e.g. 23:00 to 01:00)
+        is_active = current_time_only >= class_start_time or current_time_only <= class_stop_time
+        # In cross-midnight, "inactive" is between stop and start (e.g. 01:01 to 22:59)
+        is_over = class_stop_time < current_time_only < class_start_time
+        is_early = False # In cross-midnight, it's harder to define "early" vs "over" without more context, 
+                        # but we can assume if it's in the inactive gap, it's 'over' the previous or 'early' for next.
+                        # For simplicity, if not active, we'll check which side of the gap it's closer to or just say 'not in session'.
+    
+    # We still need datetime objects for the database logging (to mark 'Late' etc.)
+    class_start = datetime.combine(current_time.date(), class_start_time)
     
     # Decode base64 to numpy array for OpenCV
     try:
@@ -259,11 +273,12 @@ def recognize():
             # msg_data now potentially comes back as a dict with status and message
             msg_text = msg_data['message'] if isinstance(msg_data, dict) else msg_data
             
-            # Personalize message if late (after stop time)
-            if current_time > class_stop:
-                msg_text = f"{student_name}, you are late, class is over."
-            elif current_time < class_start:
-                msg_text = f"{student_name}, class has not started yet (Starts at {config['class_start_time']})."
+            # Personalize message if inactive
+            if not is_active:
+                if is_over:
+                    msg_text = f"{student_name}, class is over."
+                else:
+                    msg_text = f"{student_name}, class has not started yet (Starts at {config['class_start_time']})."
 
             logs.append({
                 "student_id": student_id,
@@ -278,14 +293,14 @@ def recognize():
                 "student_id": student_id,
                 "student_name": student_name,
                 "success": False, 
-                "message": "Spoof verification failed. Try again.", 
+                "message": face.get('spoof_message', "Spoof verification failed. Try again."), 
                 "location_valid": location_valid,
                 "box": face['box']
             })
         else:
             logs.append({
                 "student_id": "Unknown",
-                "student_name": "Unknown", 
+                "student_name": "Student not in this Class", 
                 "success": False, 
                 "message": "Face not recognized.",
                 "box": face['box']
