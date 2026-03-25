@@ -6,7 +6,7 @@ A complete, production-ready attendance management system powered by Artificial 
 
 *   **Live Facial Recognition:** Uses deep learning algorithms to match camera feeds instantly against an automated dataset generator.
 *   **Visual Feedback Outlines:** Real-time **Blue (Recognized)** and **Red (Unknown)** rectangles drawn around faces with the **Student's Full Name** displayed for instant verification.
-*   **Anti-Spoofing Protocols:** Checks for blink landmarks using dlib and Eye Aspect Ratio (EAR) mathematics to prevent users from presenting static photos.
+*   **Advanced Anti-Spoofing:** A multi-layered liveness check that uses texture analysis (Laplacian variance), illumination variance, and blink detection tracking to prevent photo and screen spoofing.
 *   **Centralized AI Training:** A dedicated **"Train AI Model"** button in the Admin Dashboard allows updating the recognition engine at any time.
 *   **Dynamic Geolocation Fencing:** Enforces physical attendance by cross-checking browser coordinates against configurable campus boundaries.
 *   **Secure Admin Dashboard:** A locked-down layout for administrators to monitor daily analytics, view registered students, and export CSV reports.
@@ -19,7 +19,7 @@ A complete, production-ready attendance management system powered by Artificial 
 
 *   **Backend Framework:** Python Flask, Jinja2
 *   **Database:** MySQL Server (`mysql.connector`)
-*   **AI / Vision:** OpenCV (`cv2`), `face_recognition`, `dlib`, `mediapipe`
+*   **AI / Vision:** OpenCV (`cv2`), `face_recognition` (dlib-based), `scipy` (spatial analysis)
 *   **Frontend UI:** Bootstrap 5, FontAwesome, Chart.js, HTML5 Canvas, Navigator Geolocation
 *   **Utility & Data:** `geopy` (Distance calculations), `pandas` (CSV Reporting)
 
@@ -107,7 +107,7 @@ python app.py
 ├── /ai/                     # Core Artificial Intelligence Module
 │   ├── recognize_engine.py  # Image-to-Encoding matching algorithm
 │   ├── train_model.py       # Encodes dataset/ directory images to encodings.pickle
-│   └── anti_spoofing.py     # dlib blink detection logic
+│   └── anti_spoofing.py     # Multi-factor liveness detection engine
 │
 ├── /reports/                # Logging & Mailing Modules
 │   ├── auto_report.py       # Pandas CSV Exporter

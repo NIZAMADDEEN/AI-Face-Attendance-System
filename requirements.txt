@@ -1,0 +1,11 @@
+Flask
+mysql-connector-python
+opencv-python
+numpy
+face-recognition
+geopy
+pandas
+yagmail
+reportlab
+scipy
+werkzeug
