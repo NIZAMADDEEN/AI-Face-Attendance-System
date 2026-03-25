@@ -42,78 +42,147 @@ def initialize_database():
     cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_NAME}")
     cursor.execute(f"USE {DB_NAME}")
     
+    # Create users table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            email VARCHAR(100) UNIQUE NOT NULL,
+            password VARCHAR(255) NOT NULL,
+            role ENUM('Admin', 'Teacher', 'Student') NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
     # Create students table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS students (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            student_id VARCHAR(50) UNIQUE NOT NULL,
-            name VARCHAR(100) NOT NULL,
-            email VARCHAR(100) NOT NULL,
-            registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            user_id INT NOT NULL,
+            student_id_code VARCHAR(50) UNIQUE NOT NULL,
+            face_embedding JSON,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     ''')
     
-    # Create attendance table (daily status)
+    # Create courses table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS courses (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            course_name VARCHAR(100) NOT NULL,
+            teacher_id INT NOT NULL,
+            FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ''')
+
+    # Create attendance table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS attendance (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            student_id VARCHAR(50) NOT NULL,
-            date DATE NOT NULL,
-            status ENUM('Present', 'Late', 'Absent') DEFAULT 'Absent',
-            location_valid BOOLEAN DEFAULT TRUE,
-            FOREIGN KEY (student_id) REFERENCES students(student_id),
-            UNIQUE KEY specific_date_attendance (student_id, date)
+            student_id_code VARCHAR(50) NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status ENUM('Present', 'Late', 'Absent') DEFAULT 'Present',
+            latitude DECIMAL(10, 8),
+            longitude DECIMAL(11, 8),
+            spoof_flag BOOLEAN DEFAULT FALSE,
+            FOREIGN KEY (student_id_code) REFERENCES students(student_id_code) ON DELETE CASCADE
         )
     ''')
     
-    # Create attendance_logs table (exact entry/exit times)
+    # Create attendance_logs table (legacy or detailed tracking)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS attendance_logs (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            student_id VARCHAR(50) NOT NULL,
+            student_id_code VARCHAR(50) NOT NULL,
             date DATE NOT NULL,
             entry_time TIME,
             exit_time TIME,
-            FOREIGN KEY (student_id) REFERENCES students(student_id),
-            UNIQUE KEY specific_date_log (student_id, date)
+            FOREIGN KEY (student_id_code) REFERENCES students(student_id_code) ON DELETE CASCADE,
+            UNIQUE KEY specific_date_log (student_id_code, date)
         )
     ''')
     
     conn.commit()
     cursor.close()
     conn.close()
-    print("Database and tables initialized successfully.")
+    print("GeoFace Database and tables initialized successfully.")
 
-def register_student(student_id, name, email):
-    """Registers a new student into the database."""
+def register_user(name, email, password_hash, role):
+    """Registers a new user into the database."""
     conn = get_connection()
     if not conn:
         return False, "Database connection failed"
     
     cursor = conn.cursor()
     try:
-        query = "INSERT INTO students (student_id, name, email) VALUES (%s, %s, %s)"
-        cursor.execute(query, (student_id, name, email))
+        query = "INSERT INTO users (name, email, password, role) VALUES (%s, %s, %s, %s)"
+        cursor.execute(query, (name, email, password_hash, role))
+        user_id = cursor.lastrowid
         conn.commit()
-        return True, "Student registered successfully."
+        return True, user_id
     except mysql.connector.IntegrityError:
-        return False, "Student ID already exists."
+        return False, "Email already exists."
     except Exception as e:
         return False, str(e)
     finally:
         cursor.close()
         conn.close()
 
-def get_student(student_id):
-    """Retrieves student information."""
+def get_user_by_email(email):
+    """Retrieves user information by email."""
     conn = get_connection()
     if not conn:
         return None
     
     cursor = conn.cursor(dictionary=True)
     try:
-        query = "SELECT * FROM students WHERE student_id = %s"
-        cursor.execute(query, (student_id,))
+        query = "SELECT * FROM users WHERE email = %s"
+        cursor.execute(query, (email,))
+        return cursor.fetchone()
+    except Exception as e:
+        print(f"Error fetching user: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+def register_student(student_id_code, user_id, face_embedding=None):
+    """Links a user to a student record with an embedding."""
+    conn = get_connection()
+    if not conn:
+        return False, "Database connection failed"
+    
+    cursor = conn.cursor()
+    try:
+        import json
+        embedding_json = json.dumps(face_embedding) if face_embedding is not None else None
+        query = "INSERT INTO students (user_id, student_id_code, face_embedding) VALUES (%s, %s, %s)"
+        cursor.execute(query, (user_id, student_id_code, embedding_json))
+        conn.commit()
+        return True, "Student registered successfully."
+    except mysql.connector.IntegrityError:
+        return False, "Student ID code already exists."
+    except Exception as e:
+        return False, str(e)
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_student(student_id_code):
+    """Retrieves student information by their ID code."""
+    conn = get_connection()
+    if not conn:
+        return None
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        query = """
+            SELECT s.*, u.name, u.email 
+            FROM students s 
+            JOIN users u ON s.user_id = u.id 
+            WHERE s.student_id_code = %s
+        """
+        cursor.execute(query, (student_id_code,))
         return cursor.fetchone()
     except Exception as e:
         print(f"Error fetching student: {e}")
@@ -122,74 +191,46 @@ def get_student(student_id):
         cursor.close()
         conn.close()
 
-def log_attendance(student_id, current_time, class_start_time, location_valid=True):
-    """Logs or updates attendance entry/exit for a student."""
+def log_attendance(student_id_code, current_time, status='Present', latitude=None, longitude=None, spoof_flag=False):
+    """Logs attendance for a student with geolocation and spoofing info."""
     conn = get_connection()
     if not conn:
         return False, "Database connection failed"
     
-    current_date = current_time.date()
-    current_time_str = current_time.time()
-    
     cursor = conn.cursor(dictionary=True)
     try:
-        # Fetch the student name for personalized logging
-        cursor.execute("SELECT name FROM students WHERE student_id = %s", (student_id,))
-        student_record = cursor.fetchone()
-        
-        if not student_record:
-            return False, {"status": "Error", "message": f"Model detected unregistered ID: {student_id}. Please delete from dataset or re-register."}
-            
-        student_name = student_record['name']
+        # Check student existence
+        cursor.execute("SELECT id FROM students WHERE student_id_code = %s", (student_id_code,))
+        if not cursor.fetchone():
+            return False, f"Student code {student_id_code} not found."
 
-        # Check if log exists for today
-        cursor.execute("SELECT * FROM attendance_logs WHERE student_id = %s AND date = %s", (student_id, current_date))
+        # Insert into attendance
+        query = """
+            INSERT INTO attendance (student_id_code, timestamp, status, latitude, longitude, spoof_flag)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(query, (student_id_code, current_time, status, latitude, longitude, spoof_flag))
+        
+        # Legacy/Detailed log update for entry/exit
+        current_date = current_time.date()
+        current_time_str = current_time.time()
+        
+        cursor.execute("SELECT * FROM attendance_logs WHERE student_id_code = %s AND date = %s", (student_id_code, current_date))
         log = cursor.fetchone()
         
-        # Determine status (Late if current time is after class_start_time)
-        class_start_t = class_start_time.time()
-        # Fetch stop time if we want to be precise, but for now we just need if it's cross-midnight
-        # Since we don't have stop_time passed here, we can infer it or just check if it's active.
-        # However, app.py already checks if it is active. If we are here, we assume it's valid log time.
-        
-        # Simple fix: if it's later than start time OR significantly earlier (meaning past midnight)
-        # But wait, without stop_time we don't know the window.
-        # Let's look at how class_start_time is passed. It's a datetime object from app.py.
-        
-        if current_time_str > class_start_t:
-            status = 'Late'
-        elif current_time_str < class_start_t:
-            # If it's early in the morning (e.g. 00:10) and start was late at night (23:00)
-            # we assume they are late for the cross-midnight class.
-            # We can check a threshold (e.g. if more than 12 hours different)
-            status = 'Late'
-
         if not log:
-            # First time scanning today: Log ENTRY
             cursor.execute('''
-                INSERT INTO attendance_logs (student_id, date, entry_time)
+                INSERT INTO attendance_logs (student_id_code, date, entry_time)
                 VALUES (%s, %s, %s)
-            ''', (student_id, current_date, current_time_str))
-            
-            # Also insert into daily attendance overview
-            cursor.execute('''
-                INSERT INTO attendance (student_id, date, status, location_valid)
-                VALUES (%s, %s, %s, %s)
-            ''', (student_id, current_date, status, location_valid))
-            
-            conn.commit()
-            msg = f"Attendance logged for {student_name} ({status})."
-            return True, {"status": status, "message": msg}
+            ''', (student_id_code, current_date, current_time_str))
         else:
-            # Scanned again later in the day: Log EXIT
             cursor.execute('''
                 UPDATE attendance_logs SET exit_time = %s
-                WHERE student_id = %s AND date = %s
-            ''', (current_time_str, student_id, current_date))
-            conn.commit()
+                WHERE student_id_code = %s AND date = %s
+            ''', (current_time_str, student_id_code, current_date))
             
-            msg = f"Exit logged for {student_name} at {current_time_str.strftime('%H:%M')}."
-            return True, {"status": "Exit", "message": msg}
+        conn.commit()
+        return True, "Attendance logged successfully."
     except Exception as e:
         conn.rollback()
         return False, str(e)
@@ -198,60 +239,64 @@ def log_attendance(student_id, current_time, class_start_time, location_valid=Tr
         conn.close()
 
 def get_all_students():
-    """Returns a list of all students."""
+    """Returns a list of all students with their user details."""
     conn = get_connection()
     if not conn:
         return []
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM students")
+    cursor.execute("""
+        SELECT s.*, u.name, u.email 
+        FROM students s 
+        JOIN users u ON s.user_id = u.id
+    """)
     students = cursor.fetchall()
     cursor.close()
     conn.close()
     return students
 
 def get_attendance_stats(date):
-    """Gets stats for a specific date."""
+    """Gets stats for a specific date from the attendance table."""
     conn = get_connection()
     if not conn:
         return {"present": 0, "late": 0, "absent": 0}
     cursor = conn.cursor(dictionary=True)
     
-    cursor.execute("SELECT COUNT(*) as count FROM attendance WHERE date = %s AND status = 'Present'", (date,))
+    # In the new schema, we check status directly
+    cursor.execute("SELECT COUNT(*) as count FROM attendance WHERE DATE(timestamp) = %s AND status = 'Present'", (date,))
     present = cursor.fetchone()['count']
     
-    cursor.execute("SELECT COUNT(*) as count FROM attendance WHERE date = %s AND status = 'Late'", (date,))
+    cursor.execute("SELECT COUNT(*) as count FROM attendance WHERE DATE(timestamp) = %s AND status = 'Late'", (date,))
     late = cursor.fetchone()['count']
     
-    cursor.execute("SELECT COUNT(*) as count FROM attendance WHERE date = %s AND status = 'Absent'", (date,))
-    absent = cursor.fetchone()['count']
+    # Absent calculation might need logic based on total students - present/late
+    # For now, if we don't have a record, they are absent.
+    cursor.execute("SELECT COUNT(*) as count FROM students")
+    total_students = cursor.fetchone()['count']
+    absent = total_students - (present + late)
     
     cursor.close()
     conn.close()
     
-    return {"present": present, "late": late, "absent": absent}
+    return {"present": present, "late": late, "absent": max(0, absent)}
 
-def get_student_attendance_history(student_id):
-    """Yields attendance records for a student."""
+def get_student_attendance_history(student_id_code):
+    """Retrieves attendance history for a specific student code."""
     conn = get_connection()
     if not conn:
         return []
     cursor = conn.cursor(dictionary=True)
     
     cursor.execute('''
-        SELECT a.date, a.status, l.entry_time, l.exit_time, a.location_valid
-        FROM attendance a
-        LEFT JOIN attendance_logs l ON a.student_id = l.student_id AND a.date = l.date
-        WHERE a.student_id = %s
-        ORDER BY a.date DESC
-    ''', (student_id,))
+        SELECT timestamp as date, status, latitude, longitude, spoof_flag
+        FROM attendance
+        WHERE student_id_code = %s
+        ORDER BY timestamp DESC
+    ''', (student_id_code,))
     history = cursor.fetchall()
     
-    # Convert timedelta to string since strict time type isn't globally json serializable
+    # Format dates/times for frontend
     for entry in history:
-        if entry['entry_time']:
-            entry['entry_time'] = str(entry['entry_time'])
-        if entry['exit_time']:
-            entry['exit_time'] = str(entry['exit_time'])
+        entry['date_str'] = entry['date'].strftime("%Y-%m-%d %H:%M:%S")
     
     cursor.close()
     conn.close()

@@ -114,7 +114,15 @@ def register():
         if student:
             return jsonify({"success": False, "message": "Student ID already exists in the database."})
             
-        return jsonify({"success": True, "message": "Details clear. Proceed to Face Capture."})
+        # Actually register in DB now so it's "taking" immediately
+        name = data.get('name')
+        email = data.get('email')
+        success, msg = database.register_student(student_id, name, email)
+        
+        if success:
+            return jsonify({"success": True, "message": "Details saved to database. Proceed to Face Capture."})
+        else:
+            return jsonify({"success": False, "message": f"Database Error: {msg}"})
         
     return render_template('register.html', is_admin=('admin_logged_in' in session))
 

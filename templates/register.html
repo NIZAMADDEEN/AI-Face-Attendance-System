@@ -201,13 +201,16 @@
             captureBtn.innerHTML = originalText;
             captureBtn.disabled = false;
             
+            // Re-fetch countSpan because innerHTML replacement might have detached the old one
+            const currentCountSpan = document.getElementById('count');
+            
             if(data.success) {
                 captureCount++;
-                countSpan.innerText = captureCount;
+                if (currentCountSpan) currentCountSpan.innerText = captureCount;
                 captureStatus.innerHTML = `<span class="text-success">${data.message}</span>`;
                 if(captureCount >= TARGET_COUNT) {
                     trainBtn.disabled = false;
-                    captureStatus.innerText = "Sufficient dataset collected. Click Train.";
+                    captureStatus.innerText = "Sufficient dataset collected. Click Finalize.";
                 }
             } else {
                 captureStatus.innerHTML = `<span class="text-danger">${data.message}</span>`;
@@ -239,11 +242,12 @@
         })
         .then(res => res.json())
         .then(res => {
-            if(res.success) {
-                captureStatus.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Registration Shared! Student is now in the database.</span><br><a href="/dashboard" class="btn btn-sm btn-primary mt-2">Go to Dashboard to Train AI Model</a>`;
+            if(res.success || res.message === "Student ID already exists.") {
+                // If it already exists, it means Step 1 was successful, so we treat it as success here too
+                captureStatus.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Face data collected! Student is ready for AI Training.</span><br><a href="/dashboard" class="btn btn-sm btn-primary mt-2">Go to Dashboard to Train AI Model</a>`;
                 stopWebcam();
             } else {
-                captureStatus.innerHTML = `<span class="text-danger">Database error: ${res.message}</span>`;
+                captureStatus.innerHTML = `<span class="text-danger">Error: ${res.message}</span>`;
                 trainBtn.disabled = false;
             }
         }).catch(err => {
