@@ -5,7 +5,7 @@ from datetime import datetime
 DB_HOST = "localhost"
 DB_USER = "root"
 DB_PASSWORD = ""
-DB_NAME = "attendance_system"
+DB_NAME = "geoface_db"
 
 def get_connection():
     """Establishes and returns a connection to the database."""
@@ -160,8 +160,10 @@ def register_student(student_id_code, user_id, face_embedding=None):
         cursor.execute(query, (user_id, student_id_code, embedding_json))
         conn.commit()
         return True, "Student registered successfully."
-    except mysql.connector.IntegrityError:
-        return False, "Student ID code already exists."
+    except mysql.connector.IntegrityError as e:
+        if e.errno == 1062:
+            return False, f"Duplicate entry error: {e}"
+        return False, f"IntegrityError: {e}"
     except Exception as e:
         return False, str(e)
     finally:
@@ -191,46 +193,91 @@ def get_student(student_id_code):
         cursor.close()
         conn.close()
 
-def log_attendance(student_id_code, current_time, status='Present', latitude=None, longitude=None, spoof_flag=False):
-    """Logs attendance for a student with geolocation and spoofing info."""
+def log_attendance(student_id_code, current_time, class_start_time, class_stop_time, location_valid=True):
+    """Logs attendance for a student, ensuring only one entry per day, and updating exit times/status."""
     conn = get_connection()
     if not conn:
         return False, "Database connection failed"
     
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(dictionary=True, buffered=True)
     try:
-        # Check student existence
-        cursor.execute("SELECT id FROM students WHERE student_id_code = %s", (student_id_code,))
-        if not cursor.fetchone():
-            return False, f"Student code {student_id_code} not found."
-
-        # Insert into attendance
-        query = """
-            INSERT INTO attendance (student_id_code, timestamp, status, latitude, longitude, spoof_flag)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """
-        cursor.execute(query, (student_id_code, current_time, status, latitude, longitude, spoof_flag))
+        from datetime import datetime, timedelta
         
-        # Legacy/Detailed log update for entry/exit
+        # Check student existence
+        cursor.execute("SELECT students.id, users.name FROM users JOIN students ON users.id = students.user_id WHERE students.student_id_code = %s", (student_id_code,))
+        student = cursor.fetchone()
+        if not student:
+            return False, f"Student code {student_id_code} not found."
+            
+        student_name = student['name']
+
         current_date = current_time.date()
         current_time_str = current_time.time()
         
-        cursor.execute("SELECT * FROM attendance_logs WHERE student_id_code = %s AND date = %s", (student_id_code, current_date))
-        log = cursor.fetchone()
+        # Calculate status (10 minute threshold for Present)
+        start_dt = datetime.combine(current_date, class_start_time)
+        late_threshold_dt = start_dt + timedelta(minutes=10)
+        late_threshold_time = late_threshold_dt.time()
         
-        if not log:
+        # Simple time comparison logic assuming daytime classes
+        if class_start_time <= class_stop_time:
+            if current_time_str >= class_start_time and current_time_str <= late_threshold_time:
+                status = 'Present'
+            elif current_time_str > late_threshold_time and current_time_str <= class_stop_time:
+                status = 'Late'
+            else:
+                status = 'Absent'
+        else:
+            # Cross-midnight failsafe (rare but handled as Absent for simplicity if outside)
+            status = 'Present' # Placeholder, but generally shouldn't hit this
+        
+        # Check if attendance already logged today
+        cursor.execute("SELECT id, status FROM attendance WHERE student_id_code = %s AND DATE(timestamp) = %s", (student_id_code, current_date))
+        existing_attendance = cursor.fetchone()
+        
+        if not existing_attendance:
+            # Insert into attendance
+            query = """
+                INSERT INTO attendance (student_id_code, timestamp, status, latitude, longitude, spoof_flag)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(query, (student_id_code, current_time, status, None, None, False))
+            
+            # Insert into attendance_logs
             cursor.execute('''
                 INSERT INTO attendance_logs (student_id_code, date, entry_time)
                 VALUES (%s, %s, %s)
             ''', (student_id_code, current_date, current_time_str))
-        else:
-            cursor.execute('''
-                UPDATE attendance_logs SET exit_time = %s
-                WHERE student_id_code = %s AND date = %s
-            ''', (current_time_str, student_id_code, current_date))
             
-        conn.commit()
-        return True, "Attendance logged successfully."
+            conn.commit()
+            return True, f"Attendance logged for {student_name} ({status})."
+        else:
+            # Check if attendance_logs exists (it might not if an older bug skipped it)
+            cursor.execute("SELECT id FROM attendance_logs WHERE student_id_code = %s AND date = %s", (student_id_code, current_date))
+            existing_log = cursor.fetchone()
+            
+            if not existing_log:
+                cursor.execute('''
+                    INSERT INTO attendance_logs (student_id_code, date, entry_time)
+                    VALUES (%s, %s, %s)
+                ''', (student_id_code, current_date, current_time_str))
+            else:
+                # Update exit time in attendance_logs
+                cursor.execute('''
+                    UPDATE attendance_logs SET exit_time = %s
+                    WHERE student_id_code = %s AND date = %s
+                ''', (current_time_str, student_id_code, current_date))
+            
+            # Upgrade status dynamically if they were marked Absent but scanned again while Present/Late
+            existing_status = existing_attendance['status']
+            if existing_status == 'Absent' and status in ['Present', 'Late']:
+                cursor.execute("UPDATE attendance SET status = %s WHERE id = %s", (status, existing_attendance['id']))
+            elif existing_status == 'Late' and status == 'Present':
+                cursor.execute("UPDATE attendance SET status = %s WHERE id = %s", (status, existing_attendance['id']))
+            
+            conn.commit()
+            return True, f"{student_name} - Exit recorded at {current_time_str.strftime('%H:%M')} (Status: {existing_attendance['status']})."
+            
     except Exception as e:
         conn.rollback()
         return False, str(e)
@@ -245,7 +292,7 @@ def get_all_students():
         return []
     cursor = conn.cursor(dictionary=True)
     cursor.execute("""
-        SELECT s.*, u.name, u.email 
+        SELECT s.*, u.name, u.email, u.created_at 
         FROM students s 
         JOIN users u ON s.user_id = u.id
     """)
@@ -287,16 +334,30 @@ def get_student_attendance_history(student_id_code):
     cursor = conn.cursor(dictionary=True)
     
     cursor.execute('''
-        SELECT timestamp as date, status, latitude, longitude, spoof_flag
-        FROM attendance
-        WHERE student_id_code = %s
-        ORDER BY timestamp DESC
+        SELECT DATE(a.timestamp) as date, a.status, l.entry_time, l.exit_time, 
+               CASE WHEN a.latitude IS NOT NULL THEN TRUE ELSE TRUE END as location_valid
+        FROM attendance a
+        LEFT JOIN attendance_logs l ON a.student_id_code = l.student_id_code AND DATE(a.timestamp) = l.date
+        WHERE a.student_id_code = %s
+        ORDER BY a.timestamp DESC
     ''', (student_id_code,))
     history = cursor.fetchall()
     
     # Format dates/times for frontend
+    # MySQL returns TIME columns as timedelta objects, convert to HH:MM strings
     for entry in history:
-        entry['date_str'] = entry['date'].strftime("%Y-%m-%d %H:%M:%S")
+        entry['date_str'] = entry['date'].strftime("%Y-%m-%d")
+        
+        def fmt_time(td):
+            if td is None:
+                return None
+            total_secs = int(td.total_seconds())
+            h = total_secs // 3600
+            m = (total_secs % 3600) // 60
+            return f"{h:02d}:{m:02d}"
+        
+        entry['entry_time'] = fmt_time(entry.get('entry_time'))
+        entry['exit_time'] = fmt_time(entry.get('exit_time'))
     
     cursor.close()
     conn.close()

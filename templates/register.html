@@ -210,6 +210,8 @@
                 captureStatus.innerHTML = `<span class="text-success">${data.message}</span>`;
                 if(captureCount >= TARGET_COUNT) {
                     trainBtn.disabled = false;
+                    captureBtn.disabled = true;
+                    captureBtn.innerHTML = `<i class="fas fa-check"></i> Finished (10/10)`;
                     captureStatus.innerText = "Sufficient dataset collected. Click Finalize.";
                 }
             } else {

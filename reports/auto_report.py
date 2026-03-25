@@ -29,11 +29,13 @@ def export_today_csv(date_str=None):
     try:
         # Fetch detailed log data
         query = '''
-            SELECT s.student_id, s.name, a.status, l.entry_time, l.exit_time, a.location_valid
+            SELECT s.student_id_code, u.name, a.status, l.entry_time, l.exit_time,
+                   (a.latitude IS NOT NULL) as location_valid
             FROM attendance a
-            JOIN students s ON a.student_id = s.student_id
-            LEFT JOIN attendance_logs l ON a.student_id = l.student_id AND a.date = l.date
-            WHERE a.date = %s
+            JOIN students s ON a.student_id_code = s.student_id_code
+            JOIN users u ON s.user_id = u.id
+            LEFT JOIN attendance_logs l ON a.student_id_code = l.student_id_code AND DATE(a.timestamp) = l.date
+            WHERE DATE(a.timestamp) = %s
         '''
         
         df = pd.read_sql(query, conn, params=(date_str,))
@@ -90,12 +92,14 @@ def generate_pdf_report(report_type):
         
     try:
         query = '''
-            SELECT a.date as Date, s.student_id as "Student ID", s.name as Name, a.status as Status, l.entry_time as Entry, l.exit_time as "Exit"
+            SELECT DATE(a.timestamp) as Date, s.student_id_code as `Student ID`, u.name as Name,
+                   a.status as Status, l.entry_time as Entry, l.exit_time as `Exit`
             FROM attendance a
-            JOIN students s ON a.student_id = s.student_id
-            LEFT JOIN attendance_logs l ON a.student_id = l.student_id AND a.date = l.date
-            WHERE a.date >= %s AND a.date <= %s
-            ORDER BY a.date DESC, s.name ASC
+            JOIN students s ON a.student_id_code = s.student_id_code
+            JOIN users u ON s.user_id = u.id
+            LEFT JOIN attendance_logs l ON a.student_id_code = l.student_id_code AND DATE(a.timestamp) = l.date
+            WHERE DATE(a.timestamp) >= %s AND DATE(a.timestamp) <= %s
+            ORDER BY a.timestamp DESC, u.name ASC
         '''
         
         df = pd.read_sql(query, conn, params=(start_date, today))

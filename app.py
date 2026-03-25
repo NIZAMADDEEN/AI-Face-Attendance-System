@@ -114,15 +114,7 @@ def register():
         if student:
             return jsonify({"success": False, "message": "Student ID already exists in the database."})
             
-        # Actually register in DB now so it's "taking" immediately
-        name = data.get('name')
-        email = data.get('email')
-        success, msg = database.register_student(student_id, name, email)
-        
-        if success:
-            return jsonify({"success": True, "message": "Details saved to database. Proceed to Face Capture."})
-        else:
-            return jsonify({"success": False, "message": f"Database Error: {msg}"})
+        return jsonify({"success": True, "message": "Details clear. Proceed to Face Capture."})
         
     return render_template('register.html', is_admin=('admin_logged_in' in session))
 
@@ -133,7 +125,16 @@ def finalize_registration():
     name = data.get('name')
     email = data.get('email')
     
-    success, msg = database.register_student(student_id, name, email)
+    user = database.get_user_by_email(email)
+    if user:
+        user_id = user['id']
+    else:
+        user_success, user_msg = database.register_user(name, email, "default_password", "Student")
+        if not user_success:
+            return jsonify({"success": False, "message": f"User Registration Error: {user_msg}"})
+        user_id = user_msg
+
+    success, msg = database.register_student(student_id, user_id)
     return jsonify({"success": success, "message": msg})
 
 @app.route('/api/save_image', methods=['POST'])
@@ -275,25 +276,32 @@ def recognize():
                 student_name = student['name']
 
         if student_id != "Unknown" and not face['spoof']:
-            if is_active:
-                # Log attendance using dynamic class start time
-                success, msg_data = database.log_attendance(student_id, current_time, class_start, location_valid)
-                msg_text = msg_data['message'] if isinstance(msg_data, dict) else msg_data
-            else:
-                success = False
+            if not is_active:
+                # Do NOT record to DB outside class hours — just warn
                 if is_over:
-                    msg_text = f"{student_name}, class is over."
+                    msg_text = f"{student_name} - Class is over. Attendance not recorded."
                 else:
-                    msg_text = f"{student_name}, class has not started yet (Starts at {config['class_start_time']})."
-
-            logs.append({
-                "student_id": student_id,
-                "student_name": student_name,
-                "success": success, 
-                "message": msg_text, 
-                "location_valid": location_valid,
-                "box": face['box']
-            })
+                    msg_text = f"{student_name} - Class has not started. Attendance not recorded."
+                logs.append({
+                    "student_id": student_id,
+                    "student_name": student_name,
+                    "success": False,
+                    "message": msg_text,
+                    "location_valid": location_valid,
+                    "box": face['box']
+                })
+            else:
+                # Class is active — log attendance to database
+                success, msg_data = database.log_attendance(student_id, current_time, class_start_time, class_stop_time, location_valid)
+                msg_text = msg_data['message'] if isinstance(msg_data, dict) else msg_data
+                logs.append({
+                    "student_id": student_id,
+                    "student_name": student_name,
+                    "success": success,
+                    "message": msg_text,
+                    "location_valid": location_valid,
+                    "box": face['box']
+                })
         elif face['spoof']:
             logs.append({
                 "student_id": student_id,

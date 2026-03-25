@@ -42,8 +42,8 @@ def recognize_faces_in_frame(frame, enforce_anti_spoofing=True):
     # Use cv2 for reliable BGR to RGB conversion
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     
-    # Detect face boxes - upsample=1 or 2 helps detect smaller faces from a distance
-    boxes = face_recognition.face_locations(rgb_frame, number_of_times_to_upsample=2, model="hog")
+    # Detect face boxes - upsample=1 is much faster than 2 while maintaining good accuracy
+    boxes = face_recognition.face_locations(rgb_frame, number_of_times_to_upsample=1, model="hog")
     
     # Compute encodings for face boxes
     encodings = face_recognition.face_encodings(rgb_frame, boxes)
@@ -65,12 +65,23 @@ def recognize_faces_in_frame(frame, enforce_anti_spoofing=True):
             best_match_index = np.argmin(face_distances)
             if matches[best_match_index]:
                 name = known_data["names"][best_match_index]
-                
+
+        # Extract face crop for texture/variance analysis
+        top, right, bottom, left = boxes[i]
+        face_crop = frame[top:bottom, left:right] if (bottom > top and right > left) else None
+
+        # Stable face_id for blink state tracking
+        face_id = name if name != "Unknown" else f"unknown_{i}"
+
         # Perform anti-spoofing logic
         spoof_detected = False
         spoof_message = "Liveness verified."
         if enforce_anti_spoofing and i < len(landmarks_list):
-            spoof_detected, spoof_message = is_spoof(landmarks_list[i])
+            spoof_detected, spoof_message = is_spoof(
+                landmarks_list[i],
+                face_crop_bgr=face_crop,
+                face_id=face_id
+            )
             
         results.append({
             "name": name,

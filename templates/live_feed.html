@@ -35,6 +35,7 @@
     const logsBox = document.getElementById('logsBox');
 
     let isScanning = false;
+    let isProcessingFrame = false;
     let scanInterval;
     let cameraStream = null;
     
@@ -92,8 +93,8 @@
 
             // Rectangle styling
             overlayCtx.lineWidth = 4;
-            // Blue for success, Red for Unknown or Spoof
-            const isRecognized = log.student_id && log.student_id !== "Unknown" && log.success;
+            // Blue for recognized student in database, Red for unrecognized
+            const isRecognized = log.student_id && log.student_id !== "Unknown";
             overlayCtx.strokeStyle = isRecognized ? "#007bff" : "#dc3545"; 
             
             overlayCtx.strokeRect(x, y, width, height);
@@ -107,12 +108,14 @@
     }
 
     function scanFrame() {
-        if(!isScanning) return;
+        if(!isScanning || isProcessingFrame) return;
 
         if (video.videoWidth === 0 || video.videoHeight === 0) {
             console.warn("Video dimensions not ready yet.");
             return;
         }
+
+        isProcessingFrame = true;
 
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -148,6 +151,8 @@
         }).catch(err => {
             console.error("Scan error:", err);
             appendLog(`Connection error: ${err.message}`, 'warning');
+        }).finally(() => {
+            isProcessingFrame = false;
         });
     }
 
@@ -175,8 +180,8 @@
                 toggleBtn.className = "btn btn-danger btn-lg rounded-pill px-5";
                 toggleBtn.disabled = false;
                 
-                // Send frame every 3 seconds to avoid spamming server
-                scanInterval = setInterval(scanFrame, 3000);
+                // Send frames frequently but guarded by isProcessingFrame
+                scanInterval = setInterval(scanFrame, 800);
             } else {
                 toggleBtn.innerText = originalText;
                 toggleBtn.disabled = false;
