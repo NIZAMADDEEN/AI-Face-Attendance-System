@@ -17,7 +17,7 @@ A complete, production-grade attendance management system powered by Modern AI, 
 ## 🛠 Technology Stack
 
 *   **Backend Framework:** Python Flask, Jinja2
-*   **Database:** MySQL Server (`mysql-connector-python`)
+*   **Database:** MySQL Server
 *   **AI / Vision Engine:** DeepFace (RetinaFace detection + ArcFace recognition), OpenCV (`cv2`)
 *   **Frontend UI:** Bootstrap 5, FontAwesome, Chart.js, HTML5 Canvas
 *   **Reporting:** `pandas` (Data processing), `reportlab` (Dynamic PDF Generation)
@@ -44,15 +44,24 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-### 3. Initialize the Database
-Ensure your MySQL server is running. Update your credentials in `database.py` (if not using defaults) and the system will automatically generate the required schema upon first run:
-```python
-DB_HOST = "localhost"
-DB_USER = "root"
-DB_PASSWORD = ""
+### 4. Configure Environment Variables
+Copy the example environment file and update it with your actual credentials:
+```bash
+cp .env.example .env
 ```
+Edit `.env` and provide:
+- `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+- `EMAIL_ADDRESS`, `EMAIL_PASSWORD` (Gmail App Password)
+- `SECRET_KEY`
 
-### 4. Start the Application
+### 5. System Configuration
+Copy the example config file:
+```bash
+cp config.example.json config.json
+```
+The system will automatically generate the required MySQL schema upon first run.
+
+### 6. Start the Application
 ```bash
 python app.py
 ```
@@ -84,22 +93,22 @@ python app.py
 ├── app.py                   # Main Flask Controller & Routes
 ├── database.py              # MySQL Logic & Notification System
 ├── config.json              # System configuration (shared)
+├── .env                     # Private environment variables
 │
 ├── /ai/                     # Computer Vision Module
 │   ├── recognize_engine.py  # DeepFace Recognition Pipeline
-│   ├── trainer.py           # Automated model initialization
+│   ├── train_model.py       # Model training engine
 │   └── anti_spoofing.py     # Liveness detection logic
 │
 ├── /reports/                # Reporting Module
 │   ├── auto_report.py       # PDF & CSV Generation Engine
-│   └── send_email.py        # Notification handlers
+│   └── exports/             # Generated report files (ignored)
 │
-├── /templates/              # UI Components (Jinja2)
-│   ├── teacher_dashboard.html # Unified Analytics & Notifications
-│   ├── dashboard.html       # Admin System Overview
-│   ├── attendance_view.html # Integrated Reports & Grading
-│   └── live_feed.html       # WebRTC Scanner Interface
-│
-└── /dataset/                # Facial embeddings & student images
+├── /templates/              # UI Components (Jinja2 Templates)
+├── /static/                 # CSS, JS, and Images
+├── /dataset/                # Facial embeddings & student images (ignored)
+└── /model/                  # Trained AI models (ignored)
 ```
-documented. Feel free to extend the SQL triggers, implement specialized `face_recognition` threshold tweaks, or connect the system directly to wider organization networking rules!
+
+## 📄 License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

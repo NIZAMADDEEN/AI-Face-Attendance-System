@@ -1,14 +1,20 @@
 # Virtual Environment
-attendence/
 venv/
+.venv/
 env/
+ENV/
+bin/
+lib/
+share/
+Include/
 
 # Python cache
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 
-# Environment variables  
+# Environment variables
 .env
 
 # Database files
@@ -25,39 +31,18 @@ Thumbs.db
 # IDE / editor files
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
 
-# Generated reports
+# Project Specific
 reports/exports/
-
-# Dataset (large binary face images)
 dataset/
-
-# Trained AI model
 model/
+config.json
 
-# Temp debug files
+# Temporary / Debug
 tb.txt
 out*.txt
 pdf_err*.txt
 freeze_out.txt
-test_error.py
-test_pdf.py
-test_img_format*.py
-
-# Config (may contain sensitive settings)
-config.json
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Virtual environment
-venv/
-ENV/
-env/
-
-# Others
-*.sqlite3
-*.log
+test_*.py

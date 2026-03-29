@@ -10,4 +10,4 @@ deepface
 tf-keras
 insightface
 retina-face
-tf-keras
+python-dotenv

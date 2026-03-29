@@ -1,10 +1,13 @@
-import yagmail
 import os
+import yagmail
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configuration (Use environment variables for robust security)
-# Make sure "Less secure app access" or an App Password is setup for Gmail
-EMAIL_ADDRESS = "nizamscomputers9@gmail.com"
-EMAIL_PASSWORD = "Musawa@1234"
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS", "admin@example.com")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
 
 def send_late_alert(student_email, student_name, entry_time):
     """

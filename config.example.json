@@ -1,0 +1,7 @@
+{
+    "admin_password": "admin_password_here",
+    "gps_lat": 23.6345,
+    "gps_lon": -102.5528,
+    "radius": 0.5,
+    "allowed_ips": ["127.0.0.1"]
+}

@@ -7,6 +7,10 @@ import base64
 from datetime import datetime, timedelta
 import json
 from geopy.distance import geodesic
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 import database
 from ai import recognize_engine
@@ -18,7 +22,7 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = "super_secret_attendance_key"
+app.secret_key = os.getenv("SECRET_KEY", "super_secret_attendance_key")
 CONFIG_FILE = "config.json"
 
 def load_config() -> dict:
