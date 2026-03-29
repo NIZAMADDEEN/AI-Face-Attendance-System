@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Settings - GeoFace{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item active">Attendance Settings</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-4">
+                    <h2 class="h4 mb-4">Configure Attendance Schedule</h2>
+                    <form method="POST">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="start_time" class="form-label">Start Time</label>
+                                <input type="time" class="form-control" id="start_time" name="start_time" value="{{ settings.start_time if settings else '09:00' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="end_time" class="form-label">End Time</label>
+                                <input type="time" class="form-control" id="end_time" name="end_time" value="{{ settings.end_time if settings else '11:00' }}" required>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+                        <h5 class="mb-3"><i class="fas fa-map-marker-alt me-2 text-danger"></i> Location Validation (GPS)</h5>
+                        <p class="small text-muted mb-4">Students must be within the specified radius of these coordinates to mark attendance.</p>
+
+                        <div class="row mb-3">
+                            <div class="col-md-5">
+                                <label for="lat" class="form-label">Latitude</label>
+                                <input type="number" step="any" class="form-control" id="lat" name="lat" value="{{ settings.gps_lat if settings else '' }}" placeholder="0.000000" required>
+                            </div>
+                            <div class="col-md-5">
+                                <label for="lon" class="form-label">Longitude</label>
+                                <input type="number" step="any" class="form-control" id="lon" name="lon" value="{{ settings.gps_lon if settings else '' }}" placeholder="0.000000" required>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="button" class="btn btn-outline-secondary w-100" onclick="getLocation()" title="Use Current Location">
+                                    <i class="fas fa-crosshairs"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="radius" class="form-label">Allowable Radius (km)</label>
+                            <input type="number" step="0.1" class="form-control" id="radius" name="radius" value="{{ settings.radius if settings else '0.5' }}" required>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-save me-2"></i> Save Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function getLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                document.getElementById("lat").value = position.coords.latitude.toFixed(8);
+                document.getElementById("lon").value = position.coords.longitude.toFixed(8);
+            }, function(error) {
+                alert("Error getting location: " + error.message);
+            });
+        } else {
+            alert("Geolocation is not supported by this browser.");
+        }
+    }
+</script>
+{% endblock %}

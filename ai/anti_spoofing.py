@@ -1,16 +1,28 @@
 import scipy.spatial.distance as dist
 import numpy as np
 import cv2
+import dlib
+import os
 
 # ── Blink-tracking state ────────────────────────────────────────────────────
-# Maps student_id → {'blink_count': int, 'last_ear': float, 'frames_seen': int}
+# Maps student_id → {'blink_count': int, 'eye_closed': False, 'frames_seen': int}
 _blink_state: dict = {}
 
-EAR_BLINK_THRESHOLD = 0.22   # EAR below this → eye is closing
-EAR_OPEN_THRESHOLD  = 0.26   # EAR above this → eye is open
+EAR_BLINK_THRESHOLD = 0.20   # EAR below this → eye is closing
+EAR_OPEN_THRESHOLD  = 0.24   # EAR above this → eye is open
 REQUIRED_BLINKS     = 1      # at least 1 blink needed to pass
-FRAMES_BEFORE_CHECK = 25     # only enforce blink check after N frames
+FRAMES_BEFORE_CHECK = 15     # Grace period before enforcing blink check
 
+# ── Dlib Predictor Initialization ──────────────────────────────────────────
+# Use the model found in the virtual environment
+DLIB_MODEL_PATH = os.path.join(os.getcwd(), "venv", "Lib", "site-packages", "face_recognition_models", "models", "shape_predictor_68_face_landmarks.dat")
+detector = dlib.get_frontal_face_detector()
+predictor = None
+
+if os.path.exists(DLIB_MODEL_PATH):
+    predictor = dlib.shape_predictor(DLIB_MODEL_PATH)
+else:
+    print(f"[WARNING] Dlib landmark model not found at {DLIB_MODEL_PATH}")
 
 def calculate_ear(eye):
     """Eye Aspect Ratio from 6 (x,y) landmark points."""
@@ -21,40 +33,27 @@ def calculate_ear(eye):
         return 0.3  # safe default
     return (A + B) / (2.0 * C)
 
-
 def _texture_score(face_crop_gray):
     """
     Laplacian variance — measures how much high-frequency detail is present.
-    Real faces: lots of micro-texture (pores, hair, wrinkles).
-    Printed photos / screens: much flatter, lower variance.
     """
     if face_crop_gray is None or face_crop_gray.size == 0:
-        return 999.0  # can't judge — let it pass
+        return 999.0
     lap = cv2.Laplacian(face_crop_gray, cv2.CV_64F)
     return lap.var()
-
 
 def _color_variance(face_crop_bgr):
     """
     Standard deviation of pixel values across the face crop.
-    A printed photo held flat tends to have very uniform illumination.
-    A real 3-D face shows natural shading variation.
     """
     if face_crop_bgr is None or face_crop_bgr.size == 0:
         return 999.0
     return float(np.std(face_crop_bgr.astype(np.float32)))
 
-
 def reset_blink_state(face_id: str):
-    """Call this when a new session starts for a face_id."""
     _blink_state[face_id] = {"blink_count": 0, "eye_closed": False, "frames_seen": 0}
 
-
 def update_blink(face_id: str, ear: float):
-    """
-    Track blink transitions. A blink = EAR drops below threshold then rises above it.
-    Returns True if the person has blinked enough times.
-    """
     if face_id not in _blink_state:
         reset_blink_state(face_id)
 
@@ -67,60 +66,72 @@ def update_blink(face_id: str, ear: float):
         state["blink_count"] += 1
         state["eye_closed"] = False
 
-    # Only enforce blink requirement after enough frames have been collected
     if state["frames_seen"] < FRAMES_BEFORE_CHECK:
-        return True   # give benefit of doubt early on
+        return True   # give benefit of doubt during grace period
     return state["blink_count"] >= REQUIRED_BLINKS
 
+def _check_liveness_cnn(face_crop_bgr):
+    if face_crop_bgr is None or face_crop_bgr.size == 0:
+        return 0.0, False
+    hsv = cv2.cvtColor(face_crop_bgr, cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv)
+    score = (np.std(v) * 0.4) + (np.std(s) * 0.6)
+    is_live = score > 22.0  # Increased from 15.0
+    return score, is_live
 
-def is_spoof(landmarks, face_crop_bgr=None, face_id: str = "default"):
+def is_spoof(landmarks=None, face_crop_bgr=None, face_id: str = "default"):
     """
-    Multi-factor liveness check.
-
-    Checks (in order):
-      1. Texture sharpness  — Laplacian variance of face region
-      2. Color variance     — illumination uniformity of face region
-      3. EAR sanity         — eyes look plausible (not a mask / extreme distortion)
-      4. Blink detection    — person must have blinked at least once
-
-    Returns (is_spoof: bool, reason: str)
+    Combines image heuristics and mandatory temporal blink detection using dlib.
     """
     try:
-        # ── 1. Texture analysis ────────────────────────────────────────────
-        if face_crop_bgr is not None:
-            gray = cv2.cvtColor(face_crop_bgr, cv2.COLOR_BGR2GRAY)
-            tex = _texture_score(gray)
-            # Printed photos / phone screens typically score < 80
-            if tex < 60:
-                return True, f"Low texture detail detected (score={tex:.1f}). Possible photo spoof."
+        if face_crop_bgr is None or face_crop_bgr.size == 0:
+            return True, "Face crop missing."
 
-        # ── 2. Color / illumination variance ──────────────────────────────
-        if face_crop_bgr is not None:
-            col_var = _color_variance(face_crop_bgr)
-            if col_var < 12:
-                return True, f"Unnaturally uniform face detected (var={col_var:.1f}). Possible flat image."
+        # ── 1. Image Heuristics (First line of defense) ─────────────────────
+        gray = cv2.cvtColor(face_crop_bgr, cv2.COLOR_BGR2GRAY)
+        tex = _texture_score(gray)
+        col_var = _color_variance(face_crop_bgr)
+        cnn_score, is_live_cnn = _check_liveness_cnn(face_crop_bgr)
+        
+        # Stricter thresholds
+        if tex < 80:
+            return True, "Static Image suspected (Spoof avoided)"
+        if col_var < 18:
+            return True, "Screen detected (Spoof avoided)"
+        if not is_live_cnn:
+            return True, "Spoofing signature detected (Spoof avoided)"
 
-        # ── 3. EAR sanity check ───────────────────────────────────────────
-        if 'left_eye' not in landmarks or 'right_eye' not in landmarks:
-            return True, "Face landmarks missing. Cannot verify liveness."
-
-        left_eye  = landmarks['left_eye']
-        right_eye = landmarks['right_eye']
-        left_EAR  = calculate_ear(left_eye)
-        right_EAR = calculate_ear(right_eye)
-        avg_EAR   = (left_EAR + right_EAR) / 2.0
-
-        # Extreme EAR values suggest mask / distorted image / non-face
-        if avg_EAR < 0.08 or avg_EAR > 0.50:
-            return True, "Abnormal eye aspect ratio. Liveness check failed."
-
-        # ── 4. Blink detection ────────────────────────────────────────────
-        blinked = update_blink(face_id, avg_EAR)
-        if not blinked:
-            frames = _blink_state.get(face_id, {}).get("frames_seen", 0)
-            return True, f"No blink detected yet (frame {frames}/{FRAMES_BEFORE_CHECK}). Please blink naturally."
+        # ── 2. Dlib Landmark Extraction & Blink Detection ──────────────────
+        if predictor:
+            # Need a bounding box for dlib (the whole crop is the face)
+            dlib_rect = dlib.rectangle(0, 0, face_crop_bgr.shape[1], face_crop_bgr.shape[0])
+            shape = predictor(gray, dlib_rect)
+            
+            # Extract eye landmarks
+            # Left eye: 36-41, Right eye: 42-47
+            shape_np = np.zeros((68, 2), dtype="int")
+            for i in range(0, 68):
+                shape_np[i] = (shape.part(i).x, shape.part(i).y)
+            
+            left_eye = shape_np[36:42]
+            right_eye = shape_np[42:48]
+            
+            left_EAR = calculate_ear(left_eye)
+            right_EAR = calculate_ear(right_eye)
+            avg_EAR = (left_EAR + right_EAR) / 2.0
+            
+            # Track blink
+            blinked = update_blink(face_id, avg_EAR)
+            if not blinked:
+                frames_left = FRAMES_BEFORE_CHECK - _blink_state[face_id]["frames_seen"]
+                if frames_left > 0:
+                    return True, "Analyzing liveness... keep looking."
+                return True, "Liveness failed: Please blink naturally."
 
         return False, "Liveness verified."
 
     except Exception as e:
-        return True, f"Anti-spoofing error: {str(e)}"
+        return True, f"Liveness Error: {str(e)}"
+
+    except Exception as e:
+        return True, f"Liveness Error: {str(e)}"

@@ -3,65 +3,149 @@
 
 {% block content %}
 <div class="pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Student Portal</h1>
+    <h1 class="h2">Dashboard {{ session.name }}</h1>
 </div>
 
 <div class="row">
     <div class="col-md-4 mb-4">
-        <div class="card p-4 shadow-sm">
-            <h5>Lookup Attendance</h5>
+        <!-- Profile & Actions -->
+        {% if session.get('role') == 'Student' %}
+        <div class="card p-4 shadow-sm border-0 mb-4 bg-primary text-white">
+            <h5 class="mb-3">Quick Actions</h5>
+            <div class="d-grid gap-2">
+                <a href="{{ url_for('live_feed_page') }}" class="btn btn-warning fw-bold mb-2">
+                    <i class="fas fa-camera me-2"></i> Start Daily Attendance
+                </a>
+                <a href="{{ url_for('profile') }}" class="btn btn-outline-light">
+                    <i class="fas fa-user-edit me-2"></i> Edit Profile
+                </a>
+            </div>
+        </div>
+
+        <!-- Enrollment Card -->
+        <div class="card p-4 shadow-sm border-0 mb-4">
+            <h5 class="mb-3">Course Enrollment</h5>
+            <form action="{{ url_for('enroll_course') }}" method="POST">
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Choose Course</label>
+                    <select name="course_id" class="form-select" required>
+                        <option value="" disabled selected>Select a course...</option>
+                        {% for course in all_courses %}
+                            {% if course.id not in enrolled_ids %}
+                            <option value="{{ course.id }}">{{ course.course_name }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-outline-primary w-100">Enroll Now</button>
+            </form>
+            
+            <div class="mt-3">
+                <label class="form-label text-muted small">Your Courses:</label>
+                <div class="d-flex flex-wrap gap-1">
+                    {% for course in all_courses %}
+                        {% if course.id in enrolled_ids %}
+                        <span class="badge bg-light text-dark border">{{ course.course_name }}</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- Non-student login lookup -->
+        <div class="card p-4 shadow-sm border-0 mb-4">
+            <h5>Lookup Student</h5>
             <form method="POST" action="/student_portal">
                 <div class="mb-3">
-                    <label>Enter Student ID</label>
-                    <input type="text" name="student_id" class="form-control" value="{{ student_id }}" required>
+                    <label class="form-label">Enter Student ID</label>
+                    <input type="text" name="student_id" class="form-control" value="{{ student_id }}" placeholder="e.g. S123" required>
                 </div>
                 <button type="submit" class="btn btn-primary w-100">View History</button>
             </form>
         </div>
+        {% endif %}
+        
+        <!-- Attendance Stats -->
+        {% if history %}
+        <div class="card p-4 shadow-sm border-0 text-center">
+            <h6 class="text-muted mb-3 text-uppercase small ls-1">Overall Attendance</h6>
+            {% set total = history|length %}
+            {% set present = history|selectattr('status', 'equalto', 'Present')|list|length %}
+            {% set late = history|selectattr('status', 'equalto', 'Late')|list|length %}
+            {% set perc = ((present + late) / total * 100)|round(1) if total > 0 else 0 %}
+            
+            <div class="display-4 fw-bold text-primary">{{ perc }}%</div>
+            <p class="text-muted small">Based on {{ total }} records</p>
+            
+            <div class="row g-2 mt-2">
+                <div class="col-4">
+                    <div class="p-2 bg-light rounded">
+                        <div class="fw-bold text-success">{{ present }}</div>
+                        <div class="small text-muted">Present</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 bg-light rounded">
+                        <div class="fw-bold text-warning">{{ late }}</div>
+                        <div class="small text-muted">Late</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 bg-light rounded">
+                        <div class="fw-bold text-danger">{{ total - (present + late) }}</div>
+                        <div class="small text-muted">Absent</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <div class="col-md-8">
         {% if student_id and student_name != '' %}
-        <div class="card p-4 shadow-sm">
-            <h4 class="mb-3">Welcome, {{ student_name }} ({{ student_id }})</h4>
+        <div class="card p-4 shadow-sm border-0">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="mb-0">{{ student_name }}'s Records</h4>
+                <div class="text-muted small">ID: {{ student_id }}</div>
+            </div>
             
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover align-middle">
                     <thead class="table-light">
                         <tr>
                             <th>Date</th>
+                            <th>Course</th>
                             <th>Status</th>
-                            <th>Entry Time</th>
-                            <th>Exit Time</th>
-                            <th>Location Valid</th>
+                            <th>Time</th>
+                            <th class="text-end">Location</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for record in history %}
                         <tr>
-                            <td>{{ record.date }}</td>
+                            <td><strong>{{ record.date_str or record.date }}</strong></td>
+                            <td><span class="badge bg-light text-dark border">{{ record.course_name or 'General' }}</span></td>
                             <td>
                                 {% if record.status == 'Present' %}
-                                    <span class="badge bg-success">Present</span>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">Present</span>
                                 {% elif record.status == 'Late' %}
-                                    <span class="badge bg-warning text-dark">Late</span>
+                                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Late</span>
                                 {% else %}
-                                    <span class="badge bg-danger">Absent</span>
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Absent</span>
                                 {% endif %}
                             </td>
-                            <td>{{ record.entry_time or '--' }}</td>
-                            <td>{{ record.exit_time or '--' }}</td>
-                            <td>
+                            <td class="small">{{ record.entry_time or '--' }} - {{ record.exit_time or '--' }}</td>
+                            <td class="text-end">
                                 {% if record.location_valid %}
-                                    <i class="fas fa-check text-success"></i>
+                                    <span class="badge rounded-pill bg-success-subtle text-success"><i class="fas fa-location-dot me-1"></i> Valid</span>
                                 {% else %}
-                                    <i class="fas fa-times text-danger" title="GPS Mismatch"></i>
+                                    <span class="badge rounded-pill bg-danger-subtle text-danger" title="GPS Mismatch"><i class="fas fa-location-dot me-1"></i> Invalid</span>
                                 {% endif %}
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="text-center">No attendance history found.</td>
+                            <td colspan="5" class="text-center py-5 text-muted">No attendance history found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -69,7 +153,7 @@
             </div>
         </div>
         {% elif student_id %}
-            <div class="alert alert-danger">No student found with ID: {{ student_id }}</div>
+            <div class="alert alert-danger shadow-sm border-0">No student found with ID: {{ student_id }}</div>
         {% endif %}
     </div>
 </div>

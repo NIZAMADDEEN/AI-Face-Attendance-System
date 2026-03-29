@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Re-capture Face Data - GeoFace{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    {% if session.get('role') == 'Admin' %}
+                    <li class="breadcrumb-item"><a href="{{ url_for('users') }}">Manage Users</a></li>
+                    {% else %}
+                    <li class="breadcrumb-item"><a href="{{ url_for('student_portal') }}">Student Portal</a></li>
+                    {% endif %}
+                    <li class="breadcrumb-item active" aria-current="page">Re-capture Face Data</li>
+                </ol>
+            </nav>
+            <h2 class="h3 mb-0">Update Facial Biometrics</h2>
+            <p class="text-muted">Stay still and capture at least 10 photos for better accuracy.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card p-4 shadow-sm border-0">
+                <div class="text-center mb-4">
+                    <div class="video-canvas-wrapper mb-3" style="max-width: 500px; margin: 0 auto; position: relative; border-radius: 15px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.2);">
+                        <video id="video" width="100%" autoplay style="background: #000; transform: scaleX(-1);"></video>
+                        <canvas id="canvas" style="display:none;"></canvas>
+                        <div id="countdown" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 5rem; color: white; text-shadow: 2px 2px 10px rgba(0,0,0,0.5); display: none;">3</div>
+                    </div>
+                    
+                    <div class="progress mb-3" style="height: 10px; border-radius: 5px;">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-center gap-3">
+                        <button id="captureBtn" class="btn btn-lg btn-success px-4">
+                            <i class="fas fa-camera me-2"></i> Capture (<span id="count">0</span>/10)
+                        </button>
+                        <button id="finishBtn" class="btn btn-lg btn-primary px-4" disabled>
+                            <i class="fas fa-check-circle me-2"></i> Finalize & Save Changes
+                        </button>
+                    </div>
+                    <div id="statusMsg" class="mt-3 fs-5"></div>
+                </div>
+                
+                <div class="alert alert-info border-0 bg-light">
+                    <h5><i class="fas fa-lightbulb me-2"></i> Tips for best results:</h5>
+                    <ul class="mb-0">
+                        <li>Ensure good lighting on your face.</li>
+                        <li>Look directly at the camera.</li>
+                        <li>Slightly tilt your head between captures for better angles.</li>
+                        <li>Remove glasses or hats if they aren't part of your daily look.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+    const captureBtn = document.getElementById('captureBtn');
+    const finishBtn = document.getElementById('finishBtn');
+    const countSpan = document.getElementById('count');
+    const progressBar = document.getElementById('progressBar');
+    const statusMsg = document.getElementById('statusMsg');
+    
+    const studentId = "{{ student_id }}";
+    const userRole = "{{ session.get('role') }}";
+    const redirectUrl = userRole === 'Admin' ? "{{ url_for('users') }}" : "{{ url_for('student_portal') }}";
+    
+    let captureCount = 0;
+    const TARGET_COUNT = 10;
+    let cameraStream = null;
+
+    async function startWebcam() {
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+            video.srcObject = cameraStream;
+        } catch (err) {
+            statusMsg.innerHTML = `<span class="text-danger">Error: ${err.message}</span>`;
+        }
+    }
+
+    captureBtn.addEventListener('click', () => {
+        if (captureCount >= TARGET_COUNT) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.translate(canvas.width, 0);
+        context.scale(-1, 1);
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const dataURL = canvas.toDataURL('image/jpeg', 0.9);
+        
+        statusMsg.innerHTML = `<span class="text-info"><i class="fas fa-spinner fa-spin"></i> Saving...</span>`;
+        
+        fetch('/api/save_image', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ student_id: studentId, image: dataURL })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                captureCount++;
+                countSpan.innerText = captureCount;
+                const percent = (captureCount / TARGET_COUNT) * 100;
+                progressBar.style.width = percent + '%';
+                statusMsg.innerHTML = `<span class="text-success">Capture ${captureCount} successful!</span>`;
+                
+                if(captureCount >= TARGET_COUNT) {
+                    captureBtn.disabled = true;
+                    finishBtn.disabled = false;
+                    statusMsg.innerHTML = `<span class="text-success fw-bold">Excellent! Ready to finalize.</span>`;
+                }
+            } else {
+                statusMsg.innerHTML = `<span class="text-danger">${data.message}</span>`;
+            }
+        });
+    });
+
+    finishBtn.addEventListener('click', () => {
+        statusMsg.innerHTML = `<span class="text-primary"><i class="fas fa-sync fa-spin"></i> Saving changes...</span>`;
+        finishBtn.disabled = true;
+        
+        fetch('/api/update_face_data', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                statusMsg.innerHTML = `<span class="text-success fw-bold"><i class="fas fa-check-double"></i> Success! Profile updated.</span>`;
+                setTimeout(() => {
+                    window.location.href = redirectUrl;
+                }, 1500);
+            } else {
+                statusMsg.innerHTML = `<span class="text-danger">Update failed: ${data.message}</span>`;
+                finishBtn.disabled = false;
+            }
+        });
+    });
+
+    window.onload = startWebcam;
+</script>
+{% endblock %}
+{% endblock %}

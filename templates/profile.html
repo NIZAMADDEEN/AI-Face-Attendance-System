@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile - GeoFace{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h2 class="mb-4"><i class="fas fa-user-circle me-3"></i>My Profile</h2>
+            
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0">Account Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-sm-4 text-muted">Full Name</div>
+                        <div class="col-sm-8 fw-bold">{{ user.name }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 text-muted">Email Address</div>
+                        <div class="col-sm-8">{{ user.email }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4 text-muted">System Role</div>
+                        <div class="col-sm-8">
+                            <span class="badge {% if user.role == 'Admin' %}bg-danger{% elif user.role == 'Teacher' %}bg-primary{% else %}bg-success{% endif %}">
+                                {{ user.role }}
+                            </span>
+                        </div>
+                    </div>
+                    {% if user.role == 'Student' %}
+                    <div class="row mb-3">
+                        <div class="col-sm-4 text-muted">Student ID</div>
+                        <div class="col-sm-8"><code>{{ student_id_code }}</code></div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 text-danger">Security - Change Password</h5>
+                </div>
+                <div class="card-body">
+                    <form action="/profile/change_password" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label">Current Password</label>
+                            <input type="password" name="current_password" class="form-control" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">New Password</label>
+                                <input type="password" name="new_password" class="form-control" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Confirm New Password</label>
+                                <input type="password" name="confirm_password" class="form-control" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-danger px-4">Update Password</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

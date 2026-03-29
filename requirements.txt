@@ -2,10 +2,12 @@ Flask
 mysql-connector-python
 opencv-python
 numpy
-face-recognition
-geopy
 pandas
-yagmail
 reportlab
 scipy
 werkzeug
+deepface
+tf-keras
+insightface
+retina-face
+tf-keras

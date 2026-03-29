@@ -45,44 +45,69 @@
                 <div class="sidebar-sticky">
                     <h4 class="text-center mb-4">Smart Attendance System</h4>
                     <ul class="nav flex-column">
-                        {% if session.get('admin_logged_in') %}
+                        {% if session.get('role') in ['Admin', 'Teacher'] %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.path == '/dashboard' %}active{% endif %}" href="/dashboard">
                                 <i class="fas fa-chart-line me-2"></i> Dashboard
                             </a>
                         </li>
+                        {% endif %}
+
+                        {% if session.get('role') == 'Admin' %}
                         <li class="nav-item">
-                            <a class="nav-link {% if request.path == '/analytics' %}active{% endif %}" href="/analytics">
-                                <i class="fas fa-chart-pie me-2"></i> Analytics
+                            <a class="nav-link {% if request.path == '/users' %}active{% endif %}" href="/users">
+                                <i class="fas fa-users me-2"></i> Manage Users
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if request.path == '/settings' %}active{% endif %}" href="/settings">
-                                <i class="fas fa-cog me-2"></i> Settings
+                            <a class="nav-link {% if request.path == '/classes' %}active{% endif %}" href="/classes">
+                                <i class="fas fa-school me-2"></i> Manage Classes
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if request.path == '/register' %}active{% endif %}" href="/register">
-                                <i class="fas fa-user-plus me-2"></i> Register Student
+                            <a class="nav-link {% if request.path == '/courses' %}active{% endif %}" href="/courses">
+                                <i class="fas fa-book me-2"></i> Manage Courses
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.path == '/assignments' %}active{% endif %}" href="/assignments">
+                                <i class="fas fa-tasks me-2"></i> Teacher Assignments
                             </a>
                         </li>
                         {% endif %}
-                        {% if not session.get('admin_logged_in') %}
+
+                        {% if session.get('role') == 'Student' %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.path == '/live_feed' %}active{% endif %}" href="/live_feed">
                                 <i class="fas fa-camera me-2"></i> Live Scanner
                             </a>
                         </li>
+                        {% endif %}
+
+
                         <li class="nav-item">
                             <a class="nav-link {% if request.path == '/student_portal' %}active{% endif %}" href="/student_portal">
                                 <i class="fas fa-user-graduate me-2"></i> Student Portal
                             </a>
                         </li>
+
+                        {% if session.get('role') == 'Admin' %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.path == '/register' %}active{% endif %}" href="/register">
+                                <i class="fas fa-user-plus me-2"></i> Register New User
+                            </a>
+                        </li>
                         {% endif %}
                         
                         <div class="mt-5 border-top pt-3"></div>
-                        {% if session.get('admin_logged_in') %}
+                        {% if session.get('user_id') %}
                         <li class="nav-item">
+                            <a class="nav-link {% if request.path == '/profile' %}active{% endif %}" href="/profile">
+                                <i class="fas fa-user-circle me-2"></i> My Profile
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <div class="px-3 py-2 text-muted small">Logged in as {{ session.get('role') }}</div>
                             <a class="nav-link text-danger" href="/logout">
                                 <i class="fas fa-sign-out-alt me-2"></i> Logout
                             </a>
@@ -90,7 +115,7 @@
                         {% else %}
                         <li class="nav-item">
                             <a class="nav-link" href="/login">
-                                <i class="fas fa-lock me-2"></i> Admin Login
+                                <i class="fas fa-lock me-2"></i> Login
                             </a>
                         </li>
                         {% endif %}
@@ -100,6 +125,17 @@
 
             <!-- Main Content Area -->
             <main role="main" class="col-md-10 ml-sm-auto px-4 main-content">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show mt-3" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
                 {% block content %}
                 {% endblock %}
             </main>

@@ -1,60 +1,51 @@
-# 🤖 AI Face Recognition Attendance Management System
+# 🤖 GeoFace AI Attendance Management System
 
-A complete, production-ready attendance management system powered by Artificial Intelligence, featuring live facial recognition, geolocation validation, and a dynamic Admin Dashboard. Built with Python, Flask, OpenCV, face_recognition, and MySQL.
+A complete, production-grade attendance management system powered by Modern AI, featuring high-accuracy facial recognition, geolocation validation, real-time teacher notifications, and professional administrative reporting. Built with Python, Flask, DeepFace (RetinaFace/ArcFace), and MySQL.
 
 ## ✨ Core Features
 
-*   **Live Facial Recognition:** Uses deep learning algorithms to match camera feeds instantly against an automated dataset generator.
+*   **Modern AI Recognition:** Powered by **RetinaFace** for high-accuracy detection and **ArcFace** for state-of-the-art facial recognition via the `DeepFace` pipeline.
 *   **Visual Feedback Outlines:** Real-time **Blue (Recognized)** and **Red (Unknown)** rectangles drawn around faces with the **Student's Full Name** displayed for instant verification.
-*   **Advanced Anti-Spoofing:** A multi-layered liveness check that uses texture analysis (Laplacian variance), illumination variance, and blink detection tracking to prevent photo and screen spoofing.
-*   **Centralized AI Training:** A dedicated **"Train AI Model"** button in the Admin Dashboard allows updating the recognition engine at any time.
+*   **Advanced Anti-Spoofing:** Built-in liveness detection to prevent photo and screen spoofing during attendance logging.
+*   **Real-time Notifications:** Teachers are instantly notified on their dashboard when new students register for their assigned classes.
 *   **Dynamic Geolocation Fencing:** Enforces physical attendance by cross-checking browser coordinates against configurable campus boundaries.
-*   **Secure Admin Dashboard:** A locked-down layout for administrators to monitor daily analytics, view registered students, and export CSV reports.
-*   **Interactive Settings Portal:** Change system GPS configuration, allowable radus limits, class start times, and admin passwords directly from the web browser! (No code restarts required).
-*   **Entry & Exit Tracking:** Gracefully marks both arrival and departure timestamps natively in the SQL database, automatically preventing duplicate logs!
-*   **Student Portal:** A public, read-only interface allowing students to enter their ID and check their historical attendance records independently.
-*   **Automated Email Warnings:** Asynchronous scripts ready to dispatch SMTP emails for chronic absentees or late arrivals via `yagmail`.
+*   **Unified Attendance Analytics:** Teachers can view a consolidated report showing attendance percentages, automatic grading, and performance recommendations for every student.
+*   **Administrative System Reports:** Dedicated Admin reports for **Overall System Users**, **Student Enrollments**, and **Teacher Assignments**.
+*   **Entry & Exit Tracking:** Marks both arrival and departure timestamps natively in the SQL database, automatically preventing duplicate logs!
+*   **Student Portal:** A private portal for students to register their faces and view their personal attendance history.
 
 ## 🛠 Technology Stack
 
 *   **Backend Framework:** Python Flask, Jinja2
-*   **Database:** MySQL Server (`mysql.connector`)
-*   **AI / Vision:** OpenCV (`cv2`), `face_recognition` (dlib-based), `scipy` (spatial analysis)
-*   **Frontend UI:** Bootstrap 5, FontAwesome, Chart.js, HTML5 Canvas, Navigator Geolocation
-*   **Utility & Data:** `geopy` (Distance calculations), `pandas` (CSV Reporting)
+*   **Database:** MySQL Server (`mysql-connector-python`)
+*   **AI / Vision Engine:** DeepFace (RetinaFace detection + ArcFace recognition), OpenCV (`cv2`)
+*   **Frontend UI:** Bootstrap 5, FontAwesome, Chart.js, HTML5 Canvas
+*   **Reporting:** `pandas` (Data processing), `reportlab` (Dynamic PDF Generation)
 
 ---
 
 ## 🚀 Setup & Installation Guide
 
 ### 1. Prerequisites
-Ensure you have the following installed on your machine:
+Ensure you have the following installed:
 *   Python 3.9+ 
 *   MySQL Server (Locally or Remote)
-*   Visual Studio C++ Build Tools (Required on Windows to compile `dlib` & `CMake`).
+*   Visual Studio C++ Build Tools (Required for AI library dependencies on Windows).
 
 ### 2. Setup Virtual Environment
-It is recommended to use a virtual environment to manage dependencies:
 ```bash
-# Create venv
+# Create and activate venv
 python -m venv venv
-
-# Activate venv (Windows)
 .\venv\Scripts\activate
-
-# Activate venv (Mac/Linux)
-source venv/bin/activate
 ```
 
 ### 3. Install Dependencies
-Install the required Python libraries:
 ```bash
 pip install -r requirements.txt
 ```
 
 ### 3. Initialize the Database
-The script will automatically generate the required database tables `students`, `attendance`, and `attendance_logs`. 
-Ensure your MySQL server is running. If your MySQL credentials are not `root` and `password`, open `database.py` and update the constants:
+Ensure your MySQL server is running. Update your credentials in `database.py` (if not using defaults) and the system will automatically generate the required schema upon first run:
 ```python
 DB_HOST = "localhost"
 DB_USER = "root"
@@ -62,7 +53,6 @@ DB_PASSWORD = ""
 ```
 
 ### 4. Start the Application
-Boot up the Flask application. It automatically sets up the environment:
 ```bash
 python app.py
 ```
@@ -70,60 +60,46 @@ python app.py
 
 ---
 
-## 📖 Walkthrough & Usage
+## 📖 System Walkthrough
 
-### ⚙️ System Configuration
-1. Navigate to `http://127.0.0.1:5000/dashboard`.
-2. You will be redirected to the secure portal. Log in using the default password: `password`.
-3. Go to **Settings** and update your **Campus Coordinates**, **Class Start Time**, and change the Admin Password.
+### ⚙️ Administrative Overview
+1.  **Dashboard**: Monitor school-wide stats and export system reports (**User Directory**, **Enrollments**, **Assignments**) in professional PDF format.
+2.  **Settings**: Configure your **Campus GPS Coordinates**, **Allowable Radius**, and **Session Timing** directly from the UI.
+3.  **Teacher Assignments**: Link teachers to specific classes and subjects to enable targeted reporting and notifications.
 
-### 👥 Registering a Student
-1. Access the public **Register Student** tab.
-2. Provide the Student ID, Name, and Email Address.
-3. Allow the browser to access the webcam, and click **Capture Face** until 10 pictures are processed into the `dataset/` directory.
-4. Click **Finalize Registration** to save the student to the database.
-*(Note: You can then train the model for all new students at once from the Dashboard).*
+### 👥 Student Registration & Notifications
+1.  Access the **Register Student** portal.
+2.  Capture 10 high-quality face samples. The system automatically detects duplicates and identifies existing users by name.
+3.  **Instant Notifications**: As soon as a student registers, the assigned teachers receive an alert on their dashboard.
 
-### 📸 Live Scanning & Feedback
-1. Go to **Live Scanner** and hit Start.
-2. Step in front of the camera.
-3. Real-time **Visual Feedback**: The system draws a **Blue box** with your **Full Name** when recognized, or a **Red box** with **"Unknown"** if not found.
-4. The AI cross-verifies your face, enforces Anti-Spoofing, and validates GPS coordinates!
-5. It will return a green **"Attendance logged for [Name] (Present)"**. If you scan again later, it will log your strict **Exit** time!
-
-### 📊 Admin Analytics & Model Management
-*   **Admin Dashboard:** Log in to see Chart.js visual statistics. Click the red **"Train AI Model"** button to update the recognition engine after registering new students.
-*   **Export Reports:** Click "Export Today's Report" (CSV) or use the PDF dropdown for detailed daily/weekly/monthly reports.
-*   **Student Portal:** Students can search their ID to pull a real-time table of their personal history.
+### 📸 Attendance Lifecycle
+1.  Go to **Live Scanner** (Student Portal).
+2.  The AI cross-verifies the student's face, enforces Anti-Spoofing, and validates GPS coordinates.
+3.  **Logging**: Marks "Present" on entry. If the student scans again during the session, it logs their strict **Exit** time.
 
 ## 📁 Repository Architecture
 ```text
-/AI_Attendance_System/
+/AI-Face-Attendance-System/
 │
-├── app.py                   # Main Flask REST API & Routers
-├── database.py              # MySQL connector functions and initializers
-├── config.json              # Dynamic user-settings 
+├── app.py                   # Main Flask Controller & Routes
+├── database.py              # MySQL Logic & Notification System
+├── config.json              # System configuration (shared)
 │
-├── /ai/                     # Core Artificial Intelligence Module
-│   ├── recognize_engine.py  # Image-to-Encoding matching algorithm
-│   ├── train_model.py       # Encodes dataset/ directory images to encodings.pickle
-│   └── anti_spoofing.py     # Multi-factor liveness detection engine
+├── /ai/                     # Computer Vision Module
+│   ├── recognize_engine.py  # DeepFace Recognition Pipeline
+│   ├── trainer.py           # Automated model initialization
+│   └── anti_spoofing.py     # Liveness detection logic
 │
-├── /reports/                # Logging & Mailing Modules
-│   ├── auto_report.py       # Pandas CSV Exporter
-│   └── send_email.py        # SMTP email alerts
+├── /reports/                # Reporting Module
+│   ├── auto_report.py       # PDF & CSV Generation Engine
+│   └── send_email.py        # Notification handlers
 │
-├── /templates/              # Jinja2 / HTML5 Views
-│   ├── base.html            # Core UI layout and Navigational logic
-│   ├── dashboard.html       # Chart.js and Data tables
-│   ├── settings.html        # Interactive Python configuration variables
-│   ├── live_feed.html       # WebRTC video capture and HTML5 canvas streaming
-│   ├── register.html        # Registration workflows
-│   ├── login.html           # Admin Session authenticator
-│   └── student_portal.html  # Read-only student historical feeds
+├── /templates/              # UI Components (Jinja2)
+│   ├── teacher_dashboard.html # Unified Analytics & Notifications
+│   ├── dashboard.html       # Admin System Overview
+│   ├── attendance_view.html # Integrated Reports & Grading
+│   └── live_feed.html       # WebRTC Scanner Interface
 │
-└── /dataset/                # Captured face arrays segregated by Student IDs
+└── /dataset/                # Facial embeddings & student images
 ```
-
-## 🤝 Contribution & License
-This full-stack tool is fully modularized and documented. Feel free to extend the SQL triggers, implement specialized `face_recognition` threshold tweaks, or connect the system directly to wider organization networking rules!
+documented. Feel free to extend the SQL triggers, implement specialized `face_recognition` threshold tweaks, or connect the system directly to wider organization networking rules!

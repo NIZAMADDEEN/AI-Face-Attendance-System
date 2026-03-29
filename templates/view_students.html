@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Registered Students - GeoFace{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4 align-items-center">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Registered Students</li>
+                </ol>
+            </nav>
+            <h2 class="h3 mb-0">Students in {{ class_name }}</h2>
+            <p class="text-muted">Course: {{ course_name }}</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('view_attendance', class_id=class_id, course_id=course_id) }}" class="btn btn-primary">
+                <i class="fas fa-clipboard-list me-2"></i> View Attendance & Marks
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th class="text-end">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr>
+                            <td><code>{{ student.student_id_code }}</code></td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm bg-light text-primary rounded-circle p-2 me-2">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <strong>{{ student.name }}</strong>
+                                </div>
+                            </td>
+                            <td>{{ student.email }}</td>
+                            <td class="text-end">
+                                <span class="badge bg-success">Enrolled</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not students %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-muted">
+                                <i class="fas fa-users-slash fa-3x mb-3 d-block"></i>
+                                No students enrolled in this course for this class yet.
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

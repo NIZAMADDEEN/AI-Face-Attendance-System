@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}View Attendance - GeoFace{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item active">Attendance Records</li>
+        </ol>
+    </nav>
+
+    <div class="row mb-5 text-center">
+        <div class="col">
+            <h3 class="fw-bold mb-0 text-dark" style="line-height: 1.2;">Attendance Report</h3>
+            <h3 class="fw-bold mb-0 text-dark" style="line-height: 1.2;">{{ course_name }}</h3>
+            <p class="fst-italic text-dark mb-0" style="line-height: 1.2;">({{ start_date }} to {{ end_date }})</p>
+        </div>
+    </div>
+
+    <div class="row mb-4 align-items-center">
+        <div class="col">
+            <h5 class="mb-0 text-secondary fw-bold"><i class="fas fa-chart-pie me-2"></i> Performance Summary</h5>
+        </div>
+        <div class="col-auto d-print-none">
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-outline-danger dropdown-toggle" type="button" id="pdfExportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-file-pdf me-2"></i> Export PDF Report
+                </button>
+                <ul class="dropdown-menu shadow border-0" aria-labelledby="pdfExportDropdown">
+                    <li><a class="dropdown-item" href="{{ url_for('export_pdf', report_type='daily', course_id=course_id) }}"><i class="fas fa-calendar-day me-2 text-danger"></i> Daily Report</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('export_pdf', report_type='weekly', course_id=course_id) }}"><i class="fas fa-calendar-week me-2 text-primary"></i> Weekly Report</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('export_pdf', report_type='monthly', course_id=course_id) }}"><i class="fas fa-calendar-alt me-2 text-success"></i> Monthly Report</a></li>
+                </ul>
+            </div>
+            <button class="btn btn-outline-success ms-2" onclick="window.print()">
+                <i class="fas fa-print me-2"></i> Print This Page
+            </button>
+        </div>
+    </div>
+
+    <!-- Performance Summary Section -->
+    <div class="card shadow-sm border-0 mb-5">
+        <div class="card-header bg-white py-3">
+            <h5 class="card-title mb-0 text-primary"><i class="fas fa-chart-line me-2"></i> Performance Summary & Marks</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Student Name</th>
+                            <th>Attendance %</th>
+                            <th>Total Marks (10)</th>
+                            <th>Status</th>
+                            <th>Recommendation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in analytics %}
+                        <tr>
+                            <td class="ps-4">
+                                <strong>{{ item.name }}</strong><br>
+                                <small class="text-muted">{{ item.student_id }}</small>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1 me-2" style="height: 8px; width: 100px;">
+                                        <div class="progress-bar bg-{{ item.color }}" role="progressbar" style="width: {{ (item.percentage|default(0))|int }}%;"></div>
+                                    </div>
+                                    <span class="fw-bold">{{ item.percentage }}%</span>
+                                </div>
+                                <small class="text-muted">{{ item.attended }} / {{ item.total_sessions }} sessions</small>
+                            </td>
+                            <td>
+                                <span class="fs-5 fw-bold text-{{ item.color }}">{{ item.marks }} / 10</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ item.color }}">{{ item.status }}</span>
+                            </td>
+                            <td class="small">
+                                {{ item.recommendation }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <hr class="my-5">
+
+    <div class="row mb-3">
+        <div class="col">
+            <h4 class="h5 mb-0 text-muted fst-italic"><i class="fas fa-history me-2"></i> Detailed Attendance Logs</h4>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Student Name</th>
+                            <th>Student ID</th>
+                            <th>Date & Time</th>
+                            <th>Status</th>
+                            <th>Device Info</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in attendance %}
+                        <tr>
+                            <td><strong>{{ record.student_name }}</strong></td>
+                            <td><code>{{ record.student_id_code }}</code></td>
+                            <td>{{ record.timestamp.strftime('%Y-%m-%d %H:%M:%S') if record.timestamp else 'N/A' }}</td>
+                            <td>
+                                <span class="badge bg-success">Present</span>
+                            </td>
+                            <td class="small text-muted">{{ record.device_info or 'Unknown' }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not attendance %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                No attendance records found for this course yet.
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,18 +1,22 @@
 import os
 import cv2
-import face_recognition
 import pickle
+import numpy as np
+from deepface import DeepFace
 
 DATASET_DIR = "dataset"
 MODEL_PATH = "model/encodings.pickle"
+RECOGNITION_MODEL = "ArcFace"
+DETECTOR_BACKEND = "opencv"  # Changed from retinaface (download was corrupt)
+DETECTOR_FALLBACKS = ["opencv", "ssd", "mtcnn"]
 
 def train_model():
     """
     Iterates through the dataset directory, reads student photos,
-    extracts face encodings, and saves them to a pickle file.
+    extracts face encodings using DeepFace, and saves them to a pickle file.
     Assumes dataset folder structure: dataset/student_id/*.jpg
     """
-    print("[INFO] Start processing faces...")
+    print("[INFO] Start processing faces with DeepFace...")
     
     known_encodings = []
     known_names = []
@@ -39,23 +43,39 @@ def train_model():
             if file.lower().endswith(('.png', '.jpg', '.jpeg')):
                 image_path = os.path.join(student_folder, file)
                 
-                # Load image
-                image = cv2.imread(image_path)
-                if image is None:
+                try:
+                    # Try primary backend, then fallbacks
+                    face_objs = None
+                    for backend in [DETECTOR_BACKEND] + DETECTOR_FALLBACKS:
+                        try:
+                            face_objs = DeepFace.represent(
+                                img_path=image_path,
+                                model_name=RECOGNITION_MODEL,
+                                detector_backend=backend,
+                                enforce_detection=True,
+                                align=True
+                            )
+                            break
+                        except Exception:
+                            continue
+
+                    # Last resort: enforce_detection=False
+                    if not face_objs:
+                        face_objs = DeepFace.represent(
+                            img_path=image_path,
+                            model_name=RECOGNITION_MODEL,
+                            detector_backend=DETECTOR_BACKEND,
+                            enforce_detection=False,
+                            align=True
+                        )
+                    
+                    for face in face_objs:
+                        known_encodings.append(face["embedding"])
+                        known_names.append(student_id)
+                        
+                except Exception as e:
+                    print(f"[WARNING] Could not process {image_path}: {e}")
                     continue
-                
-                # Convert image from BGR (OpenCV) to RGB (face_recognition)
-                rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                
-                # Detect bounding boxes for faces
-                boxes = face_recognition.face_locations(rgb_image, model="hog")
-                
-                # Compute facial embeddings
-                encodings = face_recognition.face_encodings(rgb_image, boxes)
-                
-                for encoding in encodings:
-                    known_encodings.append(encoding)
-                    known_names.append(student_id)
 
     print(f"[INFO] Serializing {len(known_encodings)} encodings...")
     data = {"encodings": known_encodings, "names": known_names}

@@ -39,14 +39,62 @@
     let scanInterval;
     let cameraStream = null;
     
-    // GPS Configuration (Sourced directly from Admin Settings)
-    let currentLat = {{ config.campus_coords[0] }};
-    let currentLon = {{ config.campus_coords[1] }};
+    // GPS Configuration (Dynamic from Browser)
+    let currentLat = null;
+    let currentLon = null;
+    let gpsWatchId = null;
+
+    function updateGPSStatus(msg, type='text-muted') {
+        let statusEl = document.getElementById('gpsStatus');
+        if (!statusEl) {
+            statusEl = document.createElement('div');
+            statusEl.id = 'gpsStatus';
+            statusEl.className = 'small mt-2';
+            const btnBox = document.querySelector('.mt-3');
+            btnBox.appendChild(statusEl);
+        }
+        statusEl.innerHTML = `<span class="${type}">${msg}</span>`;
+    }
+
+    function startGPS() {
+        if (!navigator.geolocation) {
+            updateGPSStatus("GPS not supported by your browser", "text-danger");
+            return;
+        }
+
+        updateGPSStatus("GPS: Acquiring location...", "text-warning");
+
+        gpsWatchId = navigator.geolocation.watchPosition(
+            (position) => {
+                currentLat = position.coords.latitude;
+                currentLon = position.coords.longitude;
+                updateGPSStatus(`GPS: Connected (${currentLat.toFixed(4)}, ${currentLon.toFixed(4)})`, "text-success");
+            },
+            (error) => {
+                console.error("GPS Error:", error);
+                let errorMsg = "GPS Error";
+                if (error.code === 1) errorMsg = "GPS: Permission Denied";
+                else if (error.code === 2) errorMsg = "GPS: Unavailable";
+                else if (error.code === 3) errorMsg = "GPS: Timeout";
+                updateGPSStatus(errorMsg, "text-danger");
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    }
+
+    function stopGPS() {
+        if (gpsWatchId) {
+            navigator.geolocation.clearWatch(gpsWatchId);
+            gpsWatchId = null;
+        }
+        updateGPSStatus("GPS: Off", "text-muted");
+    }
 
     async function startCamera() {
         try {
             cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
             video.srcObject = cameraStream;
+            startGPS();
         } catch (err) {
             console.error("Camera access denied.", err);
             alert("Please allow camera access.");
@@ -57,6 +105,7 @@
         if(cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
         }
+        stopGPS();
         overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     }
 
@@ -86,24 +135,47 @@
             const width = (right - left) * scaleX;
             const height = (bottom - top) * scaleY;
             
-            // Manual mirroring: Video is flipped via CSS scaleX(-1), but canvas is NOT.
-            // So we subtract from width to align.
+            // Mirroring: Video is flipped via CSS scaleX(-1). 
+            // The X coordinate needs to be reversed.
             const x = overlayCanvas.width - (left * scaleX) - width;
             const y = top * scaleY;
 
             // Rectangle styling
-            overlayCtx.lineWidth = 4;
-            // Blue for recognized student in database, Red for unrecognized
-            const isRecognized = log.student_id && log.student_id !== "Unknown";
-            overlayCtx.strokeStyle = isRecognized ? "#007bff" : "#dc3545"; 
+            overlayCtx.lineWidth = 3;
+            let color = "#dc3545"; // Default Red
             
+            if (log.student_id && log.student_id !== "Unknown") {
+                if (log.success) {
+                    color = "#28a745"; // Green (Present)
+                } else if (log.message && log.message.includes("already")) {
+                    color = "#17a2b8"; // Blue (Already marked)
+                } else {
+                    color = "#ffc107"; // Yellow (Recognized but issue)
+                }
+            }
+            
+            overlayCtx.strokeStyle = color;
             overlayCtx.strokeRect(x, y, width, height);
 
-            // Text Label
-            overlayCtx.fillStyle = overlayCtx.strokeStyle;
-            overlayCtx.font = "bold 18px Arial";
-            const label = log.student_name || "Student not in this Class";
-            overlayCtx.fillText(label, x, y > 25 ? y - 10 : y + height + 20);
+            // Label Box
+            overlayCtx.fillStyle = color;
+            overlayCtx.font = "bold 14px Segoe UI, Arial";
+            const nameLabel = log.student_name || "Unknown";
+            const confLabel = log.confidence ? `(${(log.confidence*100).toFixed(0)}%)` : "";
+            const fullLabel = `${nameLabel} ${confLabel}`;
+            
+            const textWidth = overlayCtx.measureText(fullLabel).width;
+            overlayCtx.fillRect(x, y > 22 ? y - 22 : y + height, textWidth + 10, 22);
+            
+            overlayCtx.fillStyle = "white";
+            overlayCtx.fillText(fullLabel, x + 5, y > 22 ? y - 6 : y + height + 16);
+            
+            // Sub-label for status message
+            if (log.message) {
+                overlayCtx.font = "11px Arial";
+                overlayCtx.fillStyle = color;
+                overlayCtx.fillText(log.message, x, y > 22 ? y - 28 : y + height + 35);
+            }
         });
     }
 
@@ -112,6 +184,12 @@
 
         if (video.videoWidth === 0 || video.videoHeight === 0) {
             console.warn("Video dimensions not ready yet.");
+            return;
+        }
+
+        if (currentLat === null || currentLon === null) {
+            console.warn("Waiting for GPS coordinates...");
+            updateGPSStatus("GPS: Waiting for location...", "text-warning");
             return;
         }
 
@@ -140,8 +218,22 @@
 
                 if (data.logs.length > 0) {
                     data.logs.forEach(log => {
-                        let text = `${log.student_name !== 'Student not in this Class' ? log.student_name : 'Face detected'} - ${log.message}`;
-                        if(!log.location_valid) text += " (Location invalid)";
+                        let name = log.student_name || "Face detected";
+                        let text = `${name} - ${log.message}`;
+                        
+                        // Special override for "Nothing is detected" to keep it clean
+                        if (log.message === "Nothing is detected") {
+                            text = "Nothing is detected";
+                        }
+                        
+                        if(!log.location_valid && 
+                           log.message !== "Nothing is detected" && 
+                           !log.message.includes("Spoof avoided") &&
+                           !log.message.includes("looking") &&
+                           !log.message.includes("blink")) {
+                            text += " (Location invalid)";
+                        }
+                        
                         appendLog(text, log.success ? 'success' : 'danger');
                     });
                 }

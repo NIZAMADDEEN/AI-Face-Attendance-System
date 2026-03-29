@@ -3,114 +3,55 @@
 
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Dashboard Overview</h1>
+    <h1 class="h2">Dashboard {{ session.name }}</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
+        <!-- Session Control -->
+        <div class="input-group input-group-sm me-3">
+            <span class="input-group-text"><i class="fas fa-clock"></i> Session</span>
+            <input type="time" class="form-control" id="startTime" title="Start Time">
+            <input type="time" class="form-control" id="stopTime" title="Stop Time">
+            <button class="btn btn-outline-primary" type="button" onclick="updateSessionInfo()">Set</button>
+        </div>
+        
         <div class="dropdown me-2">
-            <button class="btn btn-sm btn-outline-danger dropdown-toggle" type="button" id="pdfDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="fas fa-file-pdf"></i> Export PDF
+            <button class="btn btn-sm btn-danger dropdown-toggle" type="button" id="adminReportsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-file-export"></i> System Reports
             </button>
-            <ul class="dropdown-menu" aria-labelledby="pdfDropdown">
-                <li><a class="dropdown-item" href="#" onclick="exportPDF('daily')">Daily Report</a></li>
-                <li><a class="dropdown-item" href="#" onclick="exportPDF('weekly')">Weekly Report</a></li>
-                <li><a class="dropdown-item" href="#" onclick="exportPDF('monthly')">Monthly Report</a></li>
+            <ul class="dropdown-menu" aria-labelledby="adminReportsDropdown">
+                <li><a class="dropdown-item" href="/api/system_report/users"><i class="fas fa-users-cog me-2"></i> Overall System Users (PDF)</a></li>
+                <li><a class="dropdown-item" href="/api/system_report/enrollments"><i class="fas fa-user-graduate me-2"></i> Student Enrollments (PDF)</a></li>
+                <li><a class="dropdown-item" href="/api/system_report/assignments"><i class="fas fa-chalkboard-teacher me-2"></i> Teacher Assignments (PDF)</a></li>
             </ul>
         </div>
-        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportReport()">
-            <i class="fas fa-file-csv"></i> Export Today's CSV
-        </button>
-        <button type="button" class="btn btn-sm btn-danger ms-2" id="trainBtn" onclick="trainModel()">
-            <i class="fas fa-brain"></i> Train AI Model
-        </button>
     </div>
 </div>
 
 <!-- Stats Cards -->
 <div class="row mb-4">
+    <!-- School Total -->
     <div class="col-md-3">
-        <div class="card text-white bg-primary mb-3">
-            <div class="card-header">Total Registered</div>
+        <div class="card text-white bg-primary mb-3 shadow-sm border-0">
+            <div class="card-header bg-transparent border-0 opacity-75 small text-uppercase fw-bold ls-1">Students in School</div>
             <div class="card-body">
-                <h3 class="card-title">{{ students|length }}</h3>
+                <h3 class="card-title fw-bold">{{ students|length }}</h3>
             </div>
         </div>
     </div>
+    
+    <!-- Class Totals -->
+    {% for cls in class_stats %}
     <div class="col-md-3">
-        <div class="card text-white bg-success mb-3">
-            <div class="card-header">Present Today</div>
+        <div class="card text-white bg-success mb-3 shadow-sm border-0">
+            <div class="card-header bg-transparent border-0 opacity-75 small text-uppercase fw-bold ls-1">Total in {{ cls.class_name }}</div>
             <div class="card-body">
-                <h3 class="card-title">{{ stats.present }}</h3>
+                <h3 class="card-title fw-bold">{{ cls.student_count }}</h3>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-warning mb-3">
-            <div class="card-header">Late Today</div>
-            <div class="card-body">
-                <h3 class="card-title">{{ stats.late }}</h3>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-danger mb-3">
-            <div class="card-header">Absent Today</div>
-            <div class="card-body">
-                <h3 class="card-title">{{ stats.absent }}</h3>
-            </div>
-        </div>
-    </div>
+    {% endfor %}
 </div>
 
-<!-- Attendance Bar Chart -->
-<div class="row mb-4">
-    <div class="col-md-8 mx-auto">
-        <div class="card p-3 shadow-sm">
-            <h5 class="text-center">Today's Attendance Overview</h5>
-            <div style="position: relative; height: 300px; width: 100%;">
-                <canvas id="attendanceChart"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-const ctx = document.getElementById('attendanceChart').getContext('2d');
-new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: ['Present', 'Late', 'Absent'],
-        datasets: [{
-            label: 'Number of Students',
-            data: [{{ stats.present }}, {{ stats.late }}, {{ stats.absent }}],
-            backgroundColor: [
-                'rgba(46, 204, 113, 0.8)',
-                'rgba(241, 196, 15, 0.8)',
-                'rgba(231, 76, 60, 0.8)'
-            ],
-            borderColor: [
-                'rgba(39, 174, 96, 1)',
-                'rgba(243, 156, 18, 1)',
-                'rgba(192, 57, 43, 1)'
-            ],
-            borderWidth: 2,
-            borderRadius: 6
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: { stepSize: 1 }
-            }
-        }
-    }
-});
-</script>
+<!-- Chart removed as stats were replaced -->
 
 <!-- Student List -->
 <h2>Registered Students</h2>
@@ -177,31 +118,29 @@ function exportPDF(reportType) {
         });
 }
 
-function trainModel() {
-    const btn = document.getElementById('trainBtn');
-    const originalContent = btn.innerHTML;
+function updateSessionInfo() {
+    const start = document.getElementById('startTime').value;
+    const stop = document.getElementById('stopTime').value;
     
-    if (!confirm("This will retrain the AI model with all images in the dataset. This might take a moment. Proceed?")) return;
+    if (!start || !stop) {
+        alert("Please set both start and stop times.");
+        return;
+    }
 
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Training...';
-
-    fetch('/api/train', { method: 'POST' })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert("Success: " + data.message);
-            } else {
-                alert("Error: " + data.message);
-            }
-        })
-        .catch(err => {
-            alert("Connection error: " + err.message);
-        })
-        .finally(() => {
-            btn.disabled = false;
-            btn.innerHTML = originalContent;
-        });
+    fetch('/api/update_session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_time: start + ":00", stop_time: stop + ":00" })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert("Session times updated successfully!");
+        } else {
+            alert("Failed to update: " + data.message);
+        }
+    });
 }
+
 </script>
 {% endblock %}

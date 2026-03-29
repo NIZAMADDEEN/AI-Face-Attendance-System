@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}Teacher Dashboard - GeoFace{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Notifications Panel -->
+    {% if notifications %}
+    <div class="row mb-4 mx-0">
+        <div class="col-12 p-0">
+            <div class="card border-0 shadow-sm rounded-0" style="background: #f0f7ff; border-left: 5px solid #007bff !important;">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold text-primary mb-0">
+                            <i class="fas fa-bell me-2"></i> New Student Registrations
+                        </h6>
+                        <span class="badge bg-primary rounded-pill">{{ notifications|length }} New</span>
+                    </div>
+                    <div class="notification-list" style="max-height: 150px; overflow-y: auto;">
+                        {% for n in notifications %}
+                        <div class="d-flex justify-content-between align-items-center p-2 mb-1 bg-white rounded border-start border-success border-3 shadow-sm" id="notif-{{ n.id }}">
+                            <div class="small">
+                                <span class="text-dark">{{ n.message }}</span>
+                                <span class="text-muted ms-2" style="font-size: 0.75rem;">{{ n.created_at.strftime('%H:%M') }}</span>
+                            </div>
+                            <button class="btn btn-sm py-0 text-muted" onclick="dismissNotif({{ n.id }})" title="Dismiss">
+                                <i class="fas fa-times small"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom px-4">
+    <h1 class="h2">Dashboard {{ session.name }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <!-- Session Control -->
+        <div class="input-group input-group-sm me-3">
+            <span class="input-group-text"><i class="fas fa-clock"></i> Session</span>
+            <input type="time" class="form-control" id="startTime" title="Start Time">
+            <input type="time" class="form-control" id="stopTime" title="Stop Time">
+            <button class="btn btn-outline-primary" type="button" onclick="updateSessionInfo()">Set</button>
+        </div>
+        
+        <div class="dropdown me-2">
+            <button class="btn btn-sm btn-outline-danger dropdown-toggle" type="button" id="pdfDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-file-pdf"></i> Export PDF
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="pdfDropdown">
+                <li><a class="dropdown-item" href="#" onclick="exportPDF('daily')">Daily Report</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportPDF('weekly')">Weekly Report</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportPDF('monthly')">Monthly Report</a></li>
+            </ul>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportReport()">
+            <i class="fas fa-file-csv"></i> Export Today's CSV
+        </button>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary mb-3 shadow-sm border-0">
+            <div class="card-header bg-transparent border-0 opacity-75 small text-uppercase fw-bold ls-1">Total Registered</div>
+            <div class="card-body">
+                <h3 class="card-title fw-bold">{{ students|length }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success mb-3 shadow-sm border-0">
+            <div class="card-header bg-transparent border-0 opacity-75 small text-uppercase fw-bold ls-1">Present Today</div>
+            <div class="card-body">
+                <h3 class="card-title fw-bold">{{ stats.present }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning mb-3 shadow-sm border-0">
+            <div class="card-header bg-transparent border-0 opacity-75 small text-uppercase fw-bold ls-1">Late Today</div>
+            <div class="card-body">
+                <h3 class="card-title fw-bold">{{ stats.late }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger mb-3 shadow-sm border-0">
+            <div class="card-header bg-transparent border-0 opacity-75 small text-uppercase fw-bold ls-1">Absent Today</div>
+            <div class="card-body">
+                <h3 class="card-title fw-bold">{{ stats.absent }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col">
+        <h2 class="h4 mb-0">My Assignments</h2>
+        <p class="text-muted small">Manage attendance for your assigned classes</p>
+    </div>
+</div>
+
+    <div class="row">
+        {% for assgn in assignments %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <span class="badge bg-primary">{{ assgn.class_name }}</span>
+                            <span class="badge bg-secondary ms-1">{{ assgn.course_name }}</span>
+                        </div>
+                        {% if assgn.is_active %}
+                            <span class="badge bg-success"><i class="fas fa-circle-play me-1"></i> Active</span>
+                        {% else %}
+                            <span class="badge bg-light text-dark"><i class="fas fa-circle-stop me-1 text-muted"></i> Inactive</span>
+                        {% endif %}
+                    </div>
+                    <h5 class="card-title mb-2">
+                        <i class="fas fa-book-open me-2 text-muted"></i> {{ assgn.course_name }}
+                    </h5>
+                    <p class="text-muted small mb-4">
+                        {% if assgn.settings %}
+                            Schedule: {{ assgn.settings.start_time }} - {{ assgn.settings.end_time }}
+                        {% else %}
+                            No schedule set yet.
+                        {% endif %}
+                    </p>
+                    <div class="d-grid gap-2">
+                        <div class="btn-group" role="group">
+                            {% if not assgn.is_active %}
+                            <button class="btn btn-sm btn-success" onclick="toggleSession('{{ assgn.class_id }}', '{{ assgn.course_id }}', 'start')">
+                                <i class="fas fa-play me-2"></i> Start Session
+                            </button>
+                            {% else %}
+                            <button class="btn btn-sm btn-danger" onclick="toggleSession('{{ assgn.class_id }}', '{{ assgn.course_id }}', 'stop')">
+                                <i class="fas fa-stop me-2"></i> Stop Session
+                            </button>
+                            {% endif %}
+                        </div>
+                        <a href="{{ url_for('teacher_settings', class_id=assgn.class_id, course_id=assgn.course_id) }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-clock me-2"></i> Configure Schedule
+                        </a>
+                        <a href="{{ url_for('view_students', class_id=assgn.class_id, course_id=assgn.course_id) }}" class="btn btn-sm btn-outline-info">
+                            <i class="fas fa-users me-2"></i> View Registered Students
+                        </a>
+                        <a href="{{ url_for('view_attendance', class_id=assgn.class_id, course_id=assgn.course_id) }}" class="btn btn-primary">
+                            <i class="fas fa-clipboard-list me-2"></i> View Attendance Records
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if not assignments %}
+        <div class="col-12">
+            <div class="card shadow-sm border-0 py-5 text-center">
+                <div class="card-body">
+                    <i class="fas fa-info-circle fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">No Assignments Found</h4>
+                    <p class="text-muted">You haven't been assigned to any classes or courses yet. Please contact the Admin.</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+function exportReport() {
+    fetch('/api/export_report')
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                alert("CSV Report generated successfully at: " + data.file);
+            } else {
+                alert("Generation failed: " + data.message);
+            }
+        });
+}
+
+function exportPDF(reportType) {
+    fetch(`/api/export_pdf/${reportType}`)
+        .then(res => {
+            if (res.headers.get('content-type').includes('application/json')) {
+                return res.json().then(data => alert("PDF Generation failed: " + data.message));
+            }
+            return res.blob().then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Attendance_${reportType}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            });
+        }).catch(err => {
+            alert("Error downloading PDF: " + err);
+        });
+}
+
+function updateSessionInfo() {
+    const start = document.getElementById('startTime').value;
+    const stop = document.getElementById('stopTime').value;
+    
+    if (!start || !stop) {
+        alert("Please set both start and stop times.");
+        return;
+    }
+
+    fetch('/api/update_session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_time: start + ":00", stop_time: stop + ":00" })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert("Session times updated successfully!");
+        } else {
+            alert("Failed to update: " + data.message);
+        }
+    });
+}
+
+
+function toggleSession(classId, courseId, action) {
+    const url = action === 'start' ? '/api/start_session' : '/api/stop_session';
+    
+    // Attempt to get location if starting
+    if (action === 'start' && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+            sendSessionRequest(url, classId, courseId, pos.coords.latitude, pos.coords.longitude);
+        }, (err) => {
+            console.warn("Geolocation denied. Using default settings location.");
+            sendSessionRequest(url, classId, courseId);
+        });
+    } else {
+        sendSessionRequest(url, classId, courseId);
+    }
+}
+
+function sendSessionRequest(url, classId, courseId, lat = null, lon = null) {
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: classId, course_id: courseId, lat: lat, lon: lon })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(e => alert("Error communicating with server."));
+}
+function dismissNotif(id) {
+    fetch(`/api/dismiss_notification/${id}`, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const el = document.getElementById(`notif-${id}`);
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 300);
+            }
+        });
+}
+</script>
+{% endblock %}
+{% endblock %}
