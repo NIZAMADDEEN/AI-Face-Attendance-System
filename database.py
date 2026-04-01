@@ -201,7 +201,7 @@ def initialize_database():
     conn.commit()
     
     # Ensure Admin password is in sync with config.json
-    cursor.execute("SELECT * FROM users WHERE email = 'admin@geoface.com'")
+    cursor.execute("SELECT * FROM users WHERE email = 'mal@gmail.com'")
     admin = cursor.fetchone()
     
     import os

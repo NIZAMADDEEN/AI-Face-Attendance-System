@@ -218,25 +218,20 @@
 
                 if (data.logs.length > 0) {
                     data.logs.forEach(log => {
-                        let name = log.student_name || "Face detected";
-                        let text = `${name} - ${log.message}`;
+                        let name = log.student_name || "Face Detected";
+                        let text = `${name} — ${log.message}`;
                         
-                        // Special override for "Nothing is detected" to keep it clean
-                        if (log.message === "Nothing is detected") {
-                            text = "Nothing is detected";
-                        }
-                        
-                        if(!log.location_valid && 
-                           log.message !== "Nothing is detected" && 
-                           !log.message.includes("Spoof avoided") &&
+                        if(log.location_valid === false &&
+                           !log.message.includes("Spoof") &&
                            !log.message.includes("looking") &&
                            !log.message.includes("blink")) {
-                            text += " (Location invalid)";
+                            text += " ⚠ Location invalid";
                         }
                         
                         appendLog(text, log.success ? 'success' : 'danger');
                     });
                 }
+                // If no faces detected, silently do nothing (scanner is working fine, just no face in frame)
             } else {
                 appendLog(`Server error: ${data.message}`, 'warning');
             }

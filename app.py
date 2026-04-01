@@ -618,12 +618,24 @@ def recognize():
         box = face.get('box')
         confidence = face.get('confidence', 0)
         
-        if student_id_code == "Unknown" or face.get('spoof'):
-            msg = face.get('spoof_message', "Unknown face detected.") if face.get('spoof') else "Unknown"
+        if face.get('spoof'):
+            msg = face.get('spoof_message', "Liveness check failed. Please blink.")
             logs.append({
-                "student_id": "Unknown", 
+                "student_id": "Spoof", 
+                "student_name": "Spoof Detected",
                 "success": False, 
                 "message": msg, 
+                "box": box,
+                "confidence": confidence
+            })
+            continue
+            
+        if student_id_code == "Unknown":
+            logs.append({
+                "student_id": "Unknown", 
+                "student_name": "Unrecognized Face",
+                "success": False, 
+                "message": "Face not recognized.", 
                 "box": box,
                 "confidence": confidence
             })
@@ -632,13 +644,8 @@ def recognize():
         # 1. Get Student & their Class
         student = database.get_student(student_id_code)
         if not student:
-            logs.append({
-                "student_id": "Unknown", 
-                "success": False, 
-                "message": "Nothing is detected", 
-                "box": box,
-                "confidence": confidence
-            })
+            # Stale pickle ID — silently skip, no UI spam
+            print(f"[WARN] Stale model: matched ID '{student_id_code}' not in DB. Retrain the model.")
             continue
             
         student_name = student['name']
@@ -652,7 +659,7 @@ def recognize():
                 "student_id": student_id_code, 
                 "student_name": student_name,
                 "success": False, 
-                "message": "Do not have an active session at the moment", 
+                "message": "No active class session at this time.", 
                 "box": box,
                 "confidence": confidence
             })
@@ -706,7 +713,11 @@ def recognize():
                 "box": box,
                 "confidence": confidence
             })
-            
+    
+    # If no faces detected at all, return an empty logs array (frontend shows nothing)
+    if not results:
+        return jsonify({"success": True, "logs": [], "count": 0, "status": "no_face_detected"})
+    
     return jsonify({"success": True, "logs": logs, "count": len(results)})
 
 @app.route('/analytics')
