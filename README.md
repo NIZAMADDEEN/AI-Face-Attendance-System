@@ -8,7 +8,7 @@ A complete, production-grade attendance management system powered by Modern AI, 
 *   **Automated AI Training Pipeline:** The facial recognition model silently and automatically retrains itself in the background the moment a new student completes registration—no manual updates required!
 *   **Visual Feedback Outlines:** Real-time **Blue (Recognized)** and **Red (Unknown)** rectangles drawn around faces with the **Student's Full Name** displayed for instant verification.
 *   **Clean Live Scanner UI:** Intelligently filters out unrecognized faces and stale background data to provide a polished, distraction-free scanning experience.
-*   **Advanced Anti-Spoofing:** Built-in liveness detection to prevent photo and screen spoofing during attendance logging.
+*   **Advanced Anti-Spoofing (MiniFASNet):** Integrated **Silent-Face-Anti-Spoofing (Fasnet)** neural network to instantly and silently reject printed photos and digital screens during attendance logging.
 *   **Real-time Notifications:** Teachers are instantly notified on their dashboard when new students register for their assigned classes.
 *   **Dynamic Geolocation Fencing:** Enforces physical attendance by cross-checking browser coordinates against configurable campus boundaries.
 *   **Unified Attendance Analytics:** Teachers can view a consolidated report showing attendance percentages, automatic grading, and performance recommendations for every student.
@@ -100,8 +100,7 @@ python app.py
 │
 ├── /ai/                     # Computer Vision Module
 │   ├── recognize_engine.py  # DeepFace Recognition Pipeline
-│   ├── train_model.py       # Model training engine
-│   └── anti_spoofing.py     # Liveness detection logic
+│   └── train_model.py       # Model training engine
 │
 ├── /reports/                # Reporting Module
 │   ├── auto_report.py       # PDF & CSV Generation Engine

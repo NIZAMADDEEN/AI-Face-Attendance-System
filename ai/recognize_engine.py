@@ -3,7 +3,6 @@ import pickle
 import numpy as np
 import os
 from deepface import DeepFace
-from .anti_spoofing import is_spoof
 
 MODEL_PATH = "model/encodings.pickle"
 RECOGNITION_MODEL = "ArcFace"
@@ -49,12 +48,12 @@ def recognize_faces_in_frame(frame, enforce_anti_spoofing=True):
         
         for backend in [DETECTOR_BACKEND] + DETECTOR_FALLBACKS:
             try:
-                face_objs = DeepFace.represent(
+                face_objs = DeepFace.extract_faces(
                     img_path=frame,
-                    model_name=RECOGNITION_MODEL,
                     detector_backend=backend,
                     enforce_detection=True,
-                    align=True
+                    align=True,
+                    anti_spoofing=True if enforce_anti_spoofing else False
                 )
                 break  # Success - stop trying fallbacks
             except Exception as e:
@@ -64,12 +63,12 @@ def recognize_faces_in_frame(frame, enforce_anti_spoofing=True):
         # If all backends fail, try once more with enforce_detection=False to get any result
         if face_objs is None:
             try:
-                face_objs = DeepFace.represent(
+                face_objs = DeepFace.extract_faces(
                     img_path=frame,
-                    model_name=RECOGNITION_MODEL,
                     detector_backend=DETECTOR_BACKEND,
                     enforce_detection=False,
-                    align=True
+                    align=True,
+                    anti_spoofing=True if enforce_anti_spoofing else False
                 )
             except Exception as e:
                 print(f"[ERROR] All detection backends failed: {e}")
@@ -85,47 +84,45 @@ def recognize_faces_in_frame(frame, enforce_anti_spoofing=True):
             # Convert to (top, right, bottom, left) for consistency with existing UI/rendering
             box = (y, x + w, y + h, x)
             
-            embedding = face["embedding"]
-            name = "Unknown"
-            
-            # Find best match using cosine distance
-            best_dist = float("inf")
-            best_idx = -1
-            
-            # Using numpy for faster vector distance calculation
-            known_encodings = np.array(known_data["encodings"])
-            if len(known_encodings) > 0:
-                # Cosine distance = 1 - Cosine Similarity
-                dot_product = np.dot(known_encodings, embedding)
-                norms = np.linalg.norm(known_encodings, axis=1) * np.linalg.norm(embedding)
-                distances = 1 - (dot_product / norms)
-                
-                best_idx = np.argmin(distances)
-                best_dist = distances[best_idx]
-                
-                if best_dist < THRESHOLD:
-                    name = known_data["names"][best_idx]
-
-            # Extract padded face crop for liveness analysis (dlib needs context)
-            padding = int(0.20 * max(w, h))
-            py1, py2 = max(0, y - padding), min(frame.shape[0], y + h + padding)
-            px1, px2 = max(0, x - padding), min(frame.shape[1], x + w + padding)
-            face_crop = frame[py1:py2, px1:px2] if (h > 0 and w > 0) else None
-            
-            face_id = name if name != "Unknown" else f"unknown_{x}_{y}"
-
-            # Anti-spoofing check
+            # Anti-spoofing check using DeepFace's native MiniFASNet engine
             spoof_detected = False
             spoof_message = "Liveness verified."
+            
             if enforce_anti_spoofing:
-                # Note: CNN-based liveness might be integrated inside is_spoof or as a separate call
-                spoof_detected, spoof_message = is_spoof(
-                    None, # Landmarks not directly provided by represent() without extra work, 
-                          # but is_spoof can be updated to use modern CNN detection
-                    face_crop_bgr=face_crop,
-                    face_id=face_id
-                )
-                
+                # extract_faces natively injects "is_real"
+                if "is_real" in face:
+                    if not face["is_real"]:
+                        spoof_detected = True
+                        score = face.get("antispoof_score", 0)
+                        spoof_message = f"Spoof Detected (Photo/Screen). Score: {score:.2f}"
+                else:
+                    spoof_detected = True
+                    spoof_message = "Spoof Analysis Failed. Please rescan."
+
+            name = "Unknown"
+            best_dist = float("inf")
+            
+            # Only compute heavy database embeddings if it's a real face!
+            if not spoof_detected:
+                try:
+                    # Pass the pre-extracted face directly to represent
+                    rep = DeepFace.represent(img_path=face["face"], model_name=RECOGNITION_MODEL, enforce_detection=False)
+                    embedding = rep[0]["embedding"]
+                    
+                    # Find best match using cosine distance
+                    known_encodings = np.array(known_data["encodings"])
+                    if len(known_encodings) > 0:
+                        dot_product = np.dot(known_encodings, embedding)
+                        norms = np.linalg.norm(known_encodings, axis=1) * np.linalg.norm(embedding)
+                        distances = 1 - (dot_product / norms)
+                        
+                        best_idx = np.argmin(distances)
+                        if distances[best_idx] < THRESHOLD:
+                            name = known_data["names"][best_idx]
+                            best_dist = distances[best_idx]
+                except Exception as e:
+                    print(f"[WARN] Failed to compute embedding for detected face: {e}")
+
             results.append({
                 "name": name,
                 "box": box,
