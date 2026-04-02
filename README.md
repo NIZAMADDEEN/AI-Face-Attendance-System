@@ -5,7 +5,9 @@ A complete, production-grade attendance management system powered by Modern AI, 
 ## ✨ Core Features
 
 *   **Modern AI Recognition:** Powered by **RetinaFace** for high-accuracy detection and **ArcFace** for state-of-the-art facial recognition via the `DeepFace` pipeline.
+*   **Automated AI Training Pipeline:** The facial recognition model silently and automatically retrains itself in the background the moment a new student completes registration—no manual updates required!
 *   **Visual Feedback Outlines:** Real-time **Blue (Recognized)** and **Red (Unknown)** rectangles drawn around faces with the **Student's Full Name** displayed for instant verification.
+*   **Clean Live Scanner UI:** Intelligently filters out unrecognized faces and stale background data to provide a polished, distraction-free scanning experience.
 *   **Advanced Anti-Spoofing:** Built-in liveness detection to prevent photo and screen spoofing during attendance logging.
 *   **Real-time Notifications:** Teachers are instantly notified on their dashboard when new students register for their assigned classes.
 *   **Dynamic Geolocation Fencing:** Enforces physical attendance by cross-checking browser coordinates against configurable campus boundaries.
@@ -34,9 +36,9 @@ Ensure you have the following installed:
 
 ### 2. Setup Virtual Environment
 ```bash
-# Create and activate venv
-python -m venv venv
-.\venv\Scripts\activate
+# Create and activate venv (or venv2)
+python -m venv venv2
+.\venv2\Scripts\activate
 ```
 
 ### 3. Install Dependencies
@@ -78,8 +80,9 @@ python app.py
 
 ### 👥 Student Registration & Notifications
 1.  Access the **Register Student** portal.
-2.  Capture 10 high-quality face samples. The system automatically detects duplicates and identifies existing users by name.
-3.  **Instant Notifications**: As soon as a student registers, the assigned teachers receive an alert on their dashboard.
+2.  Capture 10 high-quality face samples. The system automatically detects duplicates and identifies existing users.
+3.  Click finalize. The **AI Model automatically trains itself** with the new images, making the student instantly recognizable.
+4.  **Instant Notifications**: As soon as a student registers, the assigned teachers receive an alert on their dashboard.
 
 ### 📸 Attendance Lifecycle
 1.  Go to **Live Scanner** (Student Portal).

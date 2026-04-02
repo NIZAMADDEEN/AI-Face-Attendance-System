@@ -495,11 +495,21 @@ def finalize_registration():
     
     if role == 'Student':
         success, msg = database.register_student(registration_id, user_id, class_id)
-        if success and class_id:
-            # Notify teachers of this class
-            teachers = database.get_teachers_by_class(class_id)
-            for t in teachers:
-                database.create_notification(t['teacher_id'], f"New student '{name}' (ID: {registration_id}) has registered for your class.")
+        if success:
+            if class_id:
+                # Notify teachers of this class
+                teachers = database.get_teachers_by_class(class_id)
+                for t in teachers:
+                    database.create_notification(t['teacher_id'], f"New student '{name}' (ID: {registration_id}) has registered for your class.")
+            
+            # Automatically train the model with the newly captured images
+            try:
+                trainer.train_model()
+                recognize_engine.reload_model()
+                msg += " AI Model automatically trained with new faces."
+            except Exception as e:
+                msg += f" (Model training failed: {str(e)})"
+                
     elif role == 'Teacher':
         success, msg = database.register_teacher(registration_id, user_id)
     elif role == 'Admin':
