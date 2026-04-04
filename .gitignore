@@ -36,9 +36,12 @@ Thumbs.db
 *.sublime-workspace
 
 # Project Specific
-reports/exports/
-dataset/
-model/
+reports/exports/*
+!reports/exports/.gitkeep
+dataset/*
+!dataset/.gitkeep
+model/*
+!model/.gitkeep
 config.json
 
 # Temporary / Debug

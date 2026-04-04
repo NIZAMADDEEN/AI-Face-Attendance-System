@@ -201,7 +201,7 @@ def initialize_database():
     conn.commit()
     
     # Ensure Admin password is in sync with config.json
-    cursor.execute("SELECT * FROM users WHERE email = 'mal@gmail.com'")
+    cursor.execute("SELECT * FROM users WHERE email = 'admin@geoface.com'")
     admin = cursor.fetchone()
     
     import os
@@ -224,17 +224,12 @@ def initialize_database():
         cursor.execute("INSERT INTO users (name, email, password, role) VALUES (%s, %s, %s, %s)", 
                        ("System Admin", "admin@geoface.com", hashed_pw, "Admin"))
         conn.commit()
-        print(f"DEBUG: Default admin created: admin@geoface.com / {admin_password}")
     else:
         # Check if password needs update (sync with config)
         if not check_password_hash(admin['password'], admin_password):
-            print(f"DEBUG: Admin password mismatch. Syncing with config.json...")
             hashed_pw = generate_password_hash(admin_password)
             cursor.execute("UPDATE users SET password = %s WHERE email = 'admin@geoface.com'", (hashed_pw,))
             conn.commit()
-            print(f"DEBUG: Admin password updated to match config.json ({admin_password})")
-        else:
-            print("DEBUG: Admin exists and password is in sync.")
 
     # Hash legacy passwords if any
     cursor.execute("SELECT id, password FROM users WHERE password = 'default_password'")

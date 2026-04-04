@@ -12,6 +12,12 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Suppress TensorFlow and oneDNN warnings
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import logging
+logging.getLogger('tensorflow').setLevel(logging.ERROR)
+
 import database
 from ai import recognize_engine
 from ai import train_model as trainer
@@ -910,4 +916,4 @@ def dismiss_notification(notification_id):
 
 if __name__ == '__main__':
     database.initialize_database()
-    app.run(debug=True, port=5000)
+    app.run(debug=True, use_reloader=False, port=5000)
