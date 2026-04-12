@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Teacher Dashboard - GeoFace{% endblock %}
+{% block title %}Teacher Dashboard - AI Facial Smart Attendance{% endblock %}
 
 {% block content %}
 <div class="container-fluid p-0">
@@ -149,8 +149,18 @@
                         <a href="{{ url_for('view_students', class_id=assgn.class_id, course_id=assgn.course_id) }}" class="btn btn-sm btn-outline-info">
                             <i class="fas fa-users me-2"></i> View Registered Students
                         </a>
-                        <a href="{{ url_for('view_attendance', class_id=assgn.class_id, course_id=assgn.course_id) }}" class="btn btn-primary">
-                            <i class="fas fa-clipboard-list me-2"></i> View Attendance Records
+                        <div class="dropdown d-grid">
+                            <button class="btn btn-sm btn-outline-danger dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-file-pdf me-2"></i> Generate Report
+                            </button>
+                            <ul class="dropdown-menu shadow w-100 border-0">
+                                <li><a class="dropdown-item py-2" href="#" onclick="exportPDF('daily', {{ assgn.course_id }}, {{ assgn.class_id }})"><i class="fas fa-calendar-day me-2 text-danger"></i> Daily Report</a></li>
+                                <li><a class="dropdown-item py-2" href="#" onclick="exportPDF('weekly', {{ assgn.course_id }}, {{ assgn.class_id }})"><i class="fas fa-calendar-week me-2 text-primary"></i> Weekly Report</a></li>
+                                <li><a class="dropdown-item py-2" href="#" onclick="exportPDF('monthly', {{ assgn.course_id }}, {{ assgn.class_id }})"><i class="fas fa-calendar-alt me-2 text-success"></i> Monthly Report</a></li>
+                            </ul>
+                        </div>
+                        <a href="{{ url_for('view_attendance', class_id=assgn.class_id, course_id=assgn.course_id) }}" class="btn btn-primary mt-2">
+                            <i class="fas fa-clipboard-list me-2"></i> View Records
                         </a>
                     </div>
                 </div>
@@ -186,8 +196,16 @@ function exportReport() {
         });
 }
 
-function exportPDF(reportType) {
-    fetch(`/api/export_pdf/${reportType}`)
+function exportPDF(reportType, courseId = null, classId = null) {
+    let url = `/api/export_pdf/${reportType}`;
+    if (courseId) {
+        url += `/${courseId}`;
+    }
+    if (classId) {
+        url += `?class_id=${classId}`;
+    }
+
+    fetch(url)
         .then(res => {
             if (res.headers.get('content-type').includes('application/json')) {
                 return res.json().then(data => alert("PDF Generation failed: " + data.message));

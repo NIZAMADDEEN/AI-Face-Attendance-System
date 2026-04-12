@@ -8,7 +8,7 @@
 
 <div class="row">
     <!-- Form Box -->
-    <div class="col-md-5">
+    <div class="{% if is_admin %}col-md-8 mx-auto{% else %}col-md-5{% endif %}">
         <div class="card p-4">
             <form id="registerForm">
                 <div class="mb-3">
@@ -49,10 +49,7 @@
                     <input type="password" class="form-control" id="password" required>
                 </div>
                 {% if is_admin %}
-                <div class="mb-3 form-check">
-                    <input type="checkbox" class="form-check-input" id="adminOverride">
-                    <label class="form-check-label text-warning" for="adminOverride"><i class="fas fa-exclamation-triangle"></i> Admin Override: Skip Webcam (Database Only)</label>
-                </div>
+                <input type="checkbox" class="form-check-input" id="adminOverride" checked style="display: none;">
                 {% endif %}
                 <button type="submit" class="btn btn-primary w-100">1. Save Details</button>
             </form>
@@ -78,6 +75,7 @@
         </div>
     </div>
 
+    {% if not is_admin %}
     <!-- Webcam Capture Box -->
     <div class="col-md-7">
         <div class="card p-4">
@@ -97,6 +95,7 @@
             <div id="captureStatus" class="mt-2 text-center text-info"></div>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <script>
@@ -125,7 +124,7 @@
 
     // Camera Management
     async function startWebcam() {
-        if(cameraStream) return;
+        if(cameraStream || !video) return;
         try {
             cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
             video.srcObject = cameraStream;
@@ -134,7 +133,7 @@
             };
         } catch (err) {
             console.error("Webcam error:", err); 
-            statusMsg.innerHTML = `<span class="text-danger">Webcam error: ${err.message}</span>`;
+            if (statusMsg) statusMsg.innerHTML = `<span class="text-danger">Webcam error: ${err.message}</span>`;
         }
     }
 
@@ -142,177 +141,185 @@
         if(cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
             cameraStream = null;
-            video.srcObject = null;
+            if (video) video.srcObject = null;
         }
     }
 
     // Step 1: Register
-    registerForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const submitBtn = registerForm.querySelector('button[type="submit"]');
-        const data = {
-            student_id: studentIdInput.value,
-            name: nameInput.value,
-            email: emailInput.value,
-            role: roleInput.value,
-            password: passwordInput.value,
-            class_id: document.getElementById('class_id').value // New
-        };
-
-        statusMsg.innerHTML = `<span class="text-info"><i class="fas fa-spinner fa-spin"></i> Checking registration...</span>`;
-        submitBtn.disabled = true;
-
-        fetch('/register', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data)
-        })
-        .then(res => res.json())
-        .then(async (res) => {
-            if(res.success) {
-                const adminOverrideCheckbox = document.getElementById('adminOverride');
-                const isOverride = adminOverrideCheckbox ? adminOverrideCheckbox.checked : false;
-                
-                if(isOverride) {
-                    statusMsg.innerHTML = `<span class="text-info"><i class="fas fa-spinner fa-spin"></i> Bypassing webcam. Saving to database...</span>`;
-                    fetch('/api/finalize_registration', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify(data)
-                    }).then(r => r.json()).then(finalRes => {
-                        if(finalRes.success) {
-                            statusMsg.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> User successfully registered!</span>`;
-                            registerForm.reset();
-                            submitBtn.disabled = false;
-                        } else {
-                            statusMsg.innerHTML = `<span class="text-danger">DB Error: ${finalRes.message}</span>`;
-                            submitBtn.disabled = false;
-                        }
-                    }).catch(err => {
-                        statusMsg.innerHTML = `<span class="text-danger">Finalization error: ${err.message}</span>`;
-                        submitBtn.disabled = false;
-                    });
-                } else {
-                    statusMsg.innerHTML = `<span class="text-success">${res.message}</span>`;
-                    currentStudentId = data.student_id;
-                    
-                    if(data.role === 'Student') {
-                        // Start Webcam for students
-                        await startWebcam();
-                        captureBtn.disabled = false;
-                    } else {
-                        // Non-students (Admin, Teacher) finalize directly
-                        trainBtn.innerText = "3. Complete Registration";
-                        trainBtn.disabled = false;
-                    }
-                    studentIdInput.disabled = true;
-                    nameInput.disabled = true;
-                    emailInput.disabled = true;
-                    if (roleInput) roleInput.disabled = true;
-                    if (adminOverrideCheckbox) adminOverrideCheckbox.disabled = true;
-                    submitBtn.disabled = true;
-                }
-            } else {
-                statusMsg.innerHTML = `<span class="text-danger">${res.message}</span>`;
-                submitBtn.disabled = false;
-            }
-        }).catch(err => {
-            statusMsg.innerHTML = `<span class="text-danger">Network error: ${err.message}</span>`;
-            submitBtn.disabled = false;
-        });
-    });
-
-    // Step 2: Capture Images
-    captureBtn.addEventListener('click', () => {
-        if(!currentStudentId) return;
-        
-        if (video.videoWidth === 0 || video.videoHeight === 0) {
-            captureStatus.innerHTML = `<span class="text-warning">Waiting for video stream dimensions...</span>`;
-            return;
-        }
-
-        // Immediate feedback
-        const originalText = captureBtn.innerHTML;
-        captureBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Capturing...`;
-        captureBtn.disabled = true;
-
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        const dataURL = canvas.toDataURL('image/jpeg');
-        
-        fetch('/api/save_image', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                student_id: currentStudentId,
-                image: dataURL
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            captureBtn.innerHTML = originalText;
-            captureBtn.disabled = false;
-            
-            // Re-fetch countSpan because innerHTML replacement might have detached the old one
-            const currentCountSpan = document.getElementById('count');
-            
-            if(data.success) {
-                captureCount++;
-                if (currentCountSpan) currentCountSpan.innerText = captureCount;
-                captureStatus.innerHTML = `<span class="text-success">${data.message}</span>`;
-                if(captureCount >= TARGET_COUNT) {
-                    trainBtn.disabled = false;
-                    captureBtn.disabled = true;
-                    captureBtn.innerHTML = `<i class="fas fa-check"></i> Finished (10/10)`;
-                    captureStatus.innerText = "Sufficient dataset collected. Click Finalize.";
-                }
-            } else {
-                captureStatus.innerHTML = `<span class="text-danger">${data.message}</span>`;
-                if(data.duplicate) {
-                    captureBtn.disabled = true; // Stop user from further capturing
-                    captureStatus.innerHTML += `<br><small class="text-warning">Please register under the existing correct ID or contact Admin.</small>`;
-                }
-            }
-        }).catch(err => {
-            captureBtn.innerHTML = originalText;
-            captureBtn.disabled = false;
-            captureStatus.innerHTML = `<span class="text-danger">Capture failed: ${err.message}</span>`;
-        });
-    });
-
-    // Step 3: Train Model
-    trainBtn.addEventListener('click', () => {
-        captureStatus.innerText = "Finalizing database registration... please wait.";
-        trainBtn.disabled = true;
-        
-        fetch('/api/finalize_registration', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                student_id: currentStudentId,
+    if (registerForm) {
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = registerForm.querySelector('button[type="submit"]');
+            const data = {
+                student_id: studentIdInput.value,
                 name: nameInput.value,
                 email: emailInput.value,
-                role: roleInput.value,
+                role: (roleInput ? roleInput.value : 'Student'),
                 password: passwordInput.value,
                 class_id: document.getElementById('class_id').value // New
+            };
+
+            statusMsg.innerHTML = `<span class="text-info"><i class="fas fa-spinner fa-spin"></i> Checking registration...</span>`;
+            submitBtn.disabled = true;
+
+            fetch('/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
             })
-        })
-        .then(res => res.json())
-        .then(res => {
-            if(res.success || res.message.includes("already exists")) {
-                // If it already exists, it means Step 1 was successful, so we treat it as success here too
-                captureStatus.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Registration Complete!</span><br><a href="/dashboard" class="btn btn-sm btn-primary mt-2">Go to Dashboard</a>`;
-                stopWebcam();
-            } else {
-                captureStatus.innerHTML = `<span class="text-danger">Error: ${res.message}</span>`;
-                trainBtn.disabled = false;
-            }
-        }).catch(err => {
-            captureStatus.innerHTML = `<span class="text-danger">Finalization network error: ${err.message}</span>`;
-            trainBtn.disabled = false;
+            .then(res => res.json())
+            .then(async (res) => {
+                if(res.success) {
+                    const adminOverrideCheckbox = document.getElementById('adminOverride');
+                    const isOverride = adminOverrideCheckbox ? adminOverrideCheckbox.checked : false;
+                    
+                    if(isOverride) {
+                        statusMsg.innerHTML = `<span class="text-info"><i class="fas fa-spinner fa-spin"></i> Saving to database...</span>`;
+                        fetch('/api/finalize_registration', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify(data)
+                        }).then(r => r.json()).then(finalRes => {
+                            if(finalRes.success) {
+                                statusMsg.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> User successfully registered!</span>`;
+                                registerForm.reset();
+                                submitBtn.disabled = false;
+                            } else {
+                                statusMsg.innerHTML = `<span class="text-danger">DB Error: ${finalRes.message}</span>`;
+                                submitBtn.disabled = false;
+                            }
+                        }).catch(err => {
+                            statusMsg.innerHTML = `<span class="text-danger">Finalization error: ${err.message}</span>`;
+                            submitBtn.disabled = false;
+                        });
+                    } else {
+                        statusMsg.innerHTML = `<span class="text-success">${res.message}</span>`;
+                        currentStudentId = data.student_id;
+                        
+                        if(data.role === 'Student') {
+                            // Start Webcam for students
+                            await startWebcam();
+                            if (captureBtn) captureBtn.disabled = false;
+                        } else {
+                            // Non-students (Admin, Teacher) finalize directly
+                            if (trainBtn) {
+                                trainBtn.innerText = "3. Complete Registration";
+                                trainBtn.disabled = false;
+                            }
+                        }
+                        studentIdInput.disabled = true;
+                        nameInput.disabled = true;
+                        emailInput.disabled = true;
+                        if (roleInput) roleInput.disabled = true;
+                        if (adminOverrideCheckbox) adminOverrideCheckbox.disabled = true;
+                        submitBtn.disabled = true;
+                    }
+                } else {
+                    statusMsg.innerHTML = `<span class="text-danger">${res.message}</span>`;
+                    submitBtn.disabled = false;
+                }
+            }).catch(err => {
+                statusMsg.innerHTML = `<span class="text-danger">Network error: ${err.message}</span>`;
+                submitBtn.disabled = false;
+            });
         });
-    });
+    }
+
+    // Step 2: Capture Images
+    if (captureBtn) {
+        captureBtn.addEventListener('click', () => {
+            if(!currentStudentId) return;
+            
+            if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+                if (captureStatus) captureStatus.innerHTML = `<span class="text-warning">Waiting for video stream dimensions...</span>`;
+                return;
+            }
+
+            // Immediate feedback
+            const originalText = captureBtn.innerHTML;
+            captureBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Capturing...`;
+            captureBtn.disabled = true;
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const dataURL = canvas.toDataURL('image/jpeg');
+            
+            fetch('/api/save_image', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    student_id: currentStudentId,
+                    image: dataURL
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                captureBtn.innerHTML = originalText;
+                captureBtn.disabled = false;
+                
+                // Re-fetch countSpan because innerHTML replacement might have detached the old one
+                const currentCountSpan = document.getElementById('count');
+                
+                if(data.success) {
+                    captureCount++;
+                    if (currentCountSpan) currentCountSpan.innerText = captureCount;
+                    if (captureStatus) captureStatus.innerHTML = `<span class="text-success">${data.message}</span>`;
+                    if(captureCount >= TARGET_COUNT) {
+                        if (trainBtn) trainBtn.disabled = false;
+                        captureBtn.disabled = true;
+                        captureBtn.innerHTML = `<i class="fas fa-check"></i> Finished (10/10)`;
+                        if (captureStatus) captureStatus.innerText = "Sufficient dataset collected. Click Finalize.";
+                    }
+                } else {
+                    if (captureStatus) captureStatus.innerHTML = `<span class="text-danger">${data.message}</span>`;
+                    if(data.duplicate) {
+                        captureBtn.disabled = true; // Stop user from further capturing
+                        if (captureStatus) captureStatus.innerHTML += `<br><small class="text-warning">Please register under the existing correct ID or contact Admin.</small>`;
+                    }
+                }
+            }).catch(err => {
+                captureBtn.innerHTML = originalText;
+                captureBtn.disabled = false;
+                if (captureStatus) captureStatus.innerHTML = `<span class="text-danger">Capture failed: ${err.message}</span>`;
+            });
+        });
+    }
+
+    // Step 3: Train Model
+    if (trainBtn) {
+        trainBtn.addEventListener('click', () => {
+            if (captureStatus) captureStatus.innerText = "Finalizing database registration... please wait.";
+            trainBtn.disabled = true;
+            
+            fetch('/api/finalize_registration', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    student_id: currentStudentId,
+                    name: nameInput.value,
+                    email: emailInput.value,
+                    role: (roleInput ? roleInput.value : 'Student'),
+                    password: passwordInput.value,
+                    class_id: document.getElementById('class_id').value // New
+                })
+            })
+            .then(res => res.json())
+            .then(res => {
+                if(res.success || res.message.includes("already exists")) {
+                    // If it already exists, it means Step 1 was successful, so we treat it as success here too
+                    if (captureStatus) captureStatus.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Registration Complete!</span><br><a href="/dashboard" class="btn btn-sm btn-primary mt-2">Go to Dashboard</a>`;
+                    stopWebcam();
+                } else {
+                    if (captureStatus) captureStatus.innerHTML = `<span class="text-danger">Error: ${res.message}</span>`;
+                    trainBtn.disabled = false;
+                }
+            }).catch(err => {
+                if (captureStatus) captureStatus.innerHTML = `<span class="text-danger">Finalization network error: ${err.message}</span>`;
+                trainBtn.disabled = false;
+            });
+        });
+    }
 </script>
 {% endblock %}

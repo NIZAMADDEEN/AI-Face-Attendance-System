@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}View Attendance - GeoFace{% endblock %}
+{% block title %}View Attendance - AI Facial Smart Attendance{% endblock %}
 
 {% block content %}
 <div class="container py-4">
@@ -29,9 +29,9 @@
                     <i class="fas fa-file-pdf me-2"></i> Export PDF Report
                 </button>
                 <ul class="dropdown-menu shadow border-0" aria-labelledby="pdfExportDropdown">
-                    <li><a class="dropdown-item" href="{{ url_for('export_pdf', report_type='daily', course_id=course_id) }}"><i class="fas fa-calendar-day me-2 text-danger"></i> Daily Report</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('export_pdf', report_type='weekly', course_id=course_id) }}"><i class="fas fa-calendar-week me-2 text-primary"></i> Weekly Report</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('export_pdf', report_type='monthly', course_id=course_id) }}"><i class="fas fa-calendar-alt me-2 text-success"></i> Monthly Report</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('export_pdf', report_type='daily', course_id=course_id, class_id=class_id) }}"><i class="fas fa-calendar-day me-2 text-danger"></i> Daily Report</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('export_pdf', report_type='weekly', course_id=course_id, class_id=class_id) }}"><i class="fas fa-calendar-week me-2 text-primary"></i> Weekly Report</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('export_pdf', report_type='monthly', course_id=course_id, class_id=class_id) }}"><i class="fas fa-calendar-alt me-2 text-success"></i> Monthly Report</a></li>
                 </ul>
             </div>
             <button class="btn btn-outline-success ms-2" onclick="window.print()">

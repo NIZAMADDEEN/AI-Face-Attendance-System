@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Teacher Assignments - GeoFace{% endblock %}
+{% block title %}Teacher Assignments - AI Facial Smart Attendance{% endblock %}
 
 {% block content %}
 <div class="container py-4">
@@ -81,9 +81,12 @@
                                     <td><span class="badge bg-info text-dark">{{ assgn.class_name }}</span></td>
                                     <td><span class="badge bg-secondary">{{ assgn.course_name }}</span></td>
                                     <td class="text-end">
-                                        <button class="btn btn-sm btn-outline-danger" title="Remove Assignment">
+                                        <a href="{{ url_for('delete_assignment', assignment_id=assgn.id) }}" 
+                                           class="btn btn-sm btn-outline-danger" 
+                                           title="Remove Assignment"
+                                           onclick="return confirm('Are you sure you want to remove this teacher assignment?')">
                                             <i class="fas fa-unlink"></i>
-                                        </button>
+                                        </a>
                                     </td>
                                 </tr>
                                 {% endfor %}

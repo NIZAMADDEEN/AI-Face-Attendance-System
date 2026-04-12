@@ -1,4 +1,4 @@
-# 🤖 GeoFace AI Attendance Management System
+# 🤖 AI Facial Smart Attendance System
 
 A complete, production-grade attendance management system powered by Modern AI, featuring high-accuracy facial recognition, geolocation validation, real-time teacher notifications, and professional administrative reporting. Built with Python, Flask, DeepFace (RetinaFace/ArcFace), and MySQL.
 
@@ -13,6 +13,7 @@ A complete, production-grade attendance management system powered by Modern AI, 
 *   **Dynamic Geolocation Fencing:** Enforces physical attendance by cross-checking browser coordinates against configurable campus boundaries.
 *   **Unified Attendance Analytics:** Teachers can view a consolidated report showing attendance percentages, automatic grading, and performance recommendations for every student.
 *   **Administrative System Reports:** Dedicated Admin reports for **Overall System Users**, **Student Enrollments**, and **Teacher Assignments**.
+*   **Course-Aware Sessions:** Intelligent session management allows for independent Entry & Exit tracking for multiple courses on the same day without data overlap.
 *   **Entry & Exit Tracking:** Marks both arrival and departure timestamps natively in the SQL database, automatically preventing duplicate logs!
 *   **Student Portal:** A private portal for students to register their faces and view their personal attendance history.
 
@@ -89,28 +90,4 @@ python app.py
 2.  The AI cross-verifies the student's face, enforces Anti-Spoofing, and validates GPS coordinates.
 3.  **Logging**: Marks "Present" on entry. If the student scans again during the session, it logs their strict **Exit** time.
 
-## 📁 Repository Architecture
-```text
-/AI-Face-Attendance-System/
-│
-├── app.py                   # Main Flask Controller & Routes
-├── database.py              # MySQL Logic & Notification System
-├── config.json              # System configuration (shared)
-├── .env                     # Private environment variables
-│
-├── /ai/                     # Computer Vision Module
-│   ├── recognize_engine.py  # DeepFace Recognition Pipeline
-│   └── train_model.py       # Model training engine
-│
-├── /reports/                # Reporting Module
-│   ├── auto_report.py       # PDF & CSV Generation Engine
-│   └── exports/             # Generated report files (ignored)
-│
-├── /templates/              # UI Components (Jinja2 Templates)
-├── /static/                 # CSS, JS, and Images
-├── /dataset/                # Facial embeddings & student images (ignored)
-└── /model/                  # Trained AI models (ignored)
-```
 
-## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

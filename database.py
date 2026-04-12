@@ -137,6 +137,7 @@ def initialize_database():
             gps_lat DECIMAL(10, 8),
             gps_lon DECIMAL(11, 8),
             radius DECIMAL(5, 2) DEFAULT 0.5,
+            is_active BOOLEAN DEFAULT 0,
             FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
@@ -177,11 +178,12 @@ def initialize_database():
         CREATE TABLE IF NOT EXISTS attendance_logs (
             id INT AUTO_INCREMENT PRIMARY KEY,
             student_id_code VARCHAR(50) NOT NULL,
+            course_id INT NOT NULL,
             date DATE NOT NULL,
             entry_time TIME,
             exit_time TIME,
             FOREIGN KEY (student_id_code) REFERENCES students(student_id_code) ON DELETE CASCADE,
-            UNIQUE KEY specific_date_log (student_id_code, date)
+            UNIQUE KEY specific_course_log (student_id_code, date, course_id)
         )
     ''')
     
@@ -197,6 +199,31 @@ def initialize_database():
         cursor.execute("ALTER TABLE attendance ADD FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL")
     except:
         pass # Column might already exist
+
+    try:
+        cursor.execute("ALTER TABLE teacher_settings ADD COLUMN is_active BOOLEAN DEFAULT 0")
+    except:
+        pass 
+
+    try:
+        cursor.execute("ALTER TABLE attendance_logs ADD COLUMN course_id INT NOT NULL AFTER student_id_code")
+    except:
+        pass 
+
+    try:
+        cursor.execute("ALTER TABLE attendance_logs DROP INDEX specific_date_log")
+    except:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE attendance_logs DROP INDEX unique_daily_log")
+    except:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE attendance_logs ADD UNIQUE KEY specific_course_log (student_id_code, date, course_id)")
+    except:
+        pass
 
     conn.commit()
     
@@ -244,7 +271,7 @@ def initialize_database():
 
     cursor.close()
     conn.close()
-    print("GeoFace Database and tables initialized successfully.")
+    print("\nAI Facial Smart Attendance Database and tables initialized successfully.")
 
 def register_user(name, email, password_hash, role):
     """Registers a new user into the database."""
@@ -331,6 +358,38 @@ def delete_user(user_id):
         conn.commit()
         return True, "User deleted successfully"
     except Exception as e:
+        return False, str(e)
+    finally:
+        cursor.close()
+        conn.close()
+
+def delete_assignment(assignment_id):
+    """Deletes a teacher assignment and its associated session settings from the database."""
+    conn = get_connection()
+    if not conn:
+        return False, "Database connection failed"
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # 1. Get the assignment details first so we can clean up settings
+        cursor.execute("SELECT teacher_id, class_id, course_id FROM teacher_assignments WHERE id = %s", (assignment_id,))
+        assignment = cursor.fetchone()
+        
+        if assignment:
+            # 2. Delete the assignment
+            cursor.execute("DELETE FROM teacher_assignments WHERE id = %s", (assignment_id,))
+            
+            # 3. Also delete any session settings for this specific link
+            cursor.execute("""
+                DELETE FROM teacher_settings 
+                WHERE teacher_id = %s AND class_id = %s AND course_id = %s
+            """, (assignment['teacher_id'], assignment['class_id'], assignment['course_id']))
+            
+            conn.commit()
+            return True, "Assignment and associated settings removed successfully"
+        else:
+            return False, "Assignment not found"
+    except Exception as e:
+        conn.rollback()
         return False, str(e)
     finally:
         cursor.close()
@@ -495,11 +554,11 @@ def log_attendance(student_id_code, course_id, current_time, class_start_time, c
             """
             cursor.execute(query, (student_id_code, course_id, current_time, status, lat, lon))
             
-            # Simple daily log for general presence (legacy support/overall report)
+            # Course-specific log for precise session tracking
             cursor.execute('''
-                INSERT IGNORE INTO attendance_logs (student_id_code, date, entry_time)
-                VALUES (%s, %s, %s)
-            ''', (student_id_code, current_date, current_time_str))
+                INSERT IGNORE INTO attendance_logs (student_id_code, course_id, date, entry_time)
+                VALUES (%s, %s, %s, %s)
+            ''', (student_id_code, course_id, current_date, current_time_str))
             
             conn.commit()
             return True, f"Entrance Recorded Successfully for {student_name} ({status})."
@@ -507,7 +566,7 @@ def log_attendance(student_id_code, course_id, current_time, class_start_time, c
             # 5. Already has a record - treat as "Exit" scan
             # Check if this is a "late" exit (prevent immediate exit logs after entrance)
             # Minimum 1 minute between entry and exit to avoid accidental double scans.
-            cursor.execute("SELECT entry_time FROM attendance_logs WHERE student_id_code = %s AND date = %s", (student_id_code, current_date))
+            cursor.execute("SELECT entry_time FROM attendance_logs WHERE student_id_code = %s AND date = %s AND course_id = %s", (student_id_code, current_date, course_id))
             log_row = cursor.fetchone()
             
             if log_row and log_row['entry_time']:
@@ -517,8 +576,8 @@ def log_attendance(student_id_code, course_id, current_time, class_start_time, c
 
             cursor.execute('''
                 UPDATE attendance_logs SET exit_time = %s
-                WHERE student_id_code = %s AND date = %s
-            ''', (current_time_str, student_id_code, current_date))
+                WHERE student_id_code = %s AND date = %s AND course_id = %s
+            ''', (current_time_str, student_id_code, current_date, course_id))
             
             conn.commit()
             return True, f"Exit Recorded Successfully for {student_name} at {current_time_str.strftime('%H:%M')}."
@@ -647,7 +706,7 @@ def get_student_attendance_history(student_id_code):
                c.course_name
         FROM attendance a
         LEFT JOIN courses c ON a.course_id = c.id
-        LEFT JOIN attendance_logs l ON a.student_id_code = l.student_id_code AND DATE(a.timestamp) = l.date
+        LEFT JOIN attendance_logs l ON a.student_id_code = l.student_id_code AND DATE(a.timestamp) = l.date AND a.course_id = l.course_id
         WHERE a.student_id_code = %s
         ORDER BY a.timestamp DESC
     ''', (student_id_code,))
@@ -1006,10 +1065,11 @@ def get_attendance_history_by_course(course_id):
     if not conn: return []
     cursor = conn.cursor(dictionary=True)
     query = """
-        SELECT a.*, s.student_id_code, u.name, a.timestamp, a.status
+        SELECT a.*, s.student_id_code, u.name, a.timestamp, a.status, l.entry_time, l.exit_time
         FROM attendance a
         JOIN students s ON a.student_id_code = s.student_id_code
         JOIN users u ON s.user_id = u.id
+        LEFT JOIN attendance_logs l ON a.student_id_code = l.student_id_code AND DATE(a.timestamp) = l.date AND a.course_id = l.course_id
         WHERE a.course_id = %s
         ORDER BY a.timestamp DESC
     """

@@ -29,12 +29,18 @@ def export_today_csv(date_str=None):
     try:
         # Fetch detailed log data
         query = '''
-            SELECT s.student_id_code, u.name, a.status, l.entry_time, l.exit_time,
-                   (a.latitude IS NOT NULL) as location_valid
+            SELECT s.student_id_code as `Student ID`, u.name as Name, 
+                   c.class_name as Class, co.course_name as Course,
+                   a.status as Status, l.entry_time as Entry, l.exit_time as `Exit`,
+                   (a.latitude IS NOT NULL) as `Location Valid`
             FROM attendance a
             JOIN students s ON a.student_id_code = s.student_id_code
             JOIN users u ON s.user_id = u.id
-            LEFT JOIN attendance_logs l ON a.student_id_code = l.student_id_code AND DATE(a.timestamp) = l.date
+            LEFT JOIN classes c ON s.class_id = c.id
+            LEFT JOIN courses co ON a.course_id = co.id
+            LEFT JOIN attendance_logs l ON a.student_id_code = l.student_id_code 
+                                       AND DATE(a.timestamp) = l.date 
+                                       AND a.course_id = l.course_id
             WHERE DATE(a.timestamp) = %s
         '''
         
@@ -71,7 +77,7 @@ def export_today_csv(date_str=None):
     finally:
         conn.close()
 
-def generate_pdf_report(report_type, course_id=None):
+def generate_pdf_report(report_type, course_id=None, class_id=None):
     """
     Generates a PDF report for daily, weekly, or monthly attendance.
     Supports optional course-specific filtering.
@@ -93,22 +99,35 @@ def generate_pdf_report(report_type, course_id=None):
         return None
         
     try:
-        # Get course name if applicable
+        # Get course and class names if applicable
         course_name = ""
+        class_name = ""
         if course_id:
             cursor = conn.cursor(dictionary=True)
             cursor.execute("SELECT course_name FROM courses WHERE id = %s", (course_id,))
             row = cursor.fetchone()
             course_name = row['course_name'] if row else f"Course ID: {course_id}"
             cursor.close()
+            
+        if class_id:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT class_name FROM classes WHERE id = %s", (class_id,))
+            row = cursor.fetchone()
+            class_name = row['class_name'] if row else f"Class ID: {class_id}"
+            cursor.close()
 
         query = '''
             SELECT DATE(a.timestamp) as Date, s.student_id_code as `Student ID`, u.name as Name,
+                   c.class_name as Class, co.course_name as Course,
                    a.status as Status, l.entry_time as Entry, l.exit_time as `Exit`
             FROM attendance a
             JOIN students s ON a.student_id_code = s.student_id_code
             JOIN users u ON s.user_id = u.id
-            LEFT JOIN attendance_logs l ON a.student_id_code = l.student_id_code AND DATE(a.timestamp) = l.date
+            LEFT JOIN classes c ON s.class_id = c.id
+            LEFT JOIN courses co ON a.course_id = co.id
+            LEFT JOIN attendance_logs l ON a.student_id_code = l.student_id_code 
+                                       AND DATE(a.timestamp) = l.date 
+                                       AND a.course_id = l.course_id
             WHERE DATE(a.timestamp) >= %s AND DATE(a.timestamp) <= %s
         '''
         params = [start_date, today]
@@ -136,7 +155,8 @@ def generate_pdf_report(report_type, course_id=None):
             
         filepath = os.path.join(EXPORT_DIR, filename)
         
-        doc = SimpleDocTemplate(filepath, pagesize=letter)
+        from reportlab.lib.pagesizes import landscape
+        doc = SimpleDocTemplate(filepath, pagesize=landscape(letter))
         elements = []
         
         styles = getSampleStyleSheet()
@@ -175,9 +195,18 @@ def generate_pdf_report(report_type, course_id=None):
         # 1. Main Title
         elements.append(Paragraph("Attendance Report", title_style))
         
-        # 2. Course Name
-        display_course = course_name if course_name else "Detailed Summary"
-        elements.append(Paragraph(f"{display_course}", course_style))
+        # 2. Class & Course Name
+        header_text = ""
+        if class_name and course_name:
+            header_text = f"Class: {class_name} | Course: {course_name}"
+        elif course_name:
+            header_text = f"Course: {course_name}"
+        elif class_name:
+            header_text = f"Class: {class_name}"
+        else:
+            header_text = "Detailed Summary"
+            
+        elements.append(Paragraph(header_text, course_style))
             
         # 3. Date Range (Italic)
         date_subtitle = f"({start_date} to {today})"
@@ -210,6 +239,7 @@ def generate_pdf_report(report_type, course_id=None):
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
             ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ecf0f1')),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)

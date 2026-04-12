@@ -1,42 +1,215 @@
 {% extends "base.html" %}
-{% block title %}Admin Login{% endblock %}
+{% block title %}User Login - AI Facial Smart Attendance{% endblock %}
 
 {% block content %}
-<div class="row pt-5">
-    <div class="col-md-4 mx-auto">
-        <div class="card p-4 shadow-sm text-center">
-            <h2 class="mb-4"><i class="fas fa-lock text-primary mb-2"></i><br>User Login</h2>
-            
-            {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                {% for category, message in messages %}
-                  <div class="alert alert-{{ category }}">{{ message }}</div>
-                {% endfor %}
-              {% endif %}
-            {% endwith %}
+<!-- Google Fonts: Outfit -->
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-            <form method="POST" action="/login">
-                <div class="mb-3 text-start">
-                    <label class="form-label">Email Address</label>
-                    <input type="email" name="email" class="form-control" placeholder="Enter your email" required>
+<div class="login-page-wrapper">
+    <!-- Scrolling Marquee Header -->
+    <div class="marquee-container">
+        <div class="marquee-content">
+            An AI Facial Smart Attendance System with Anti-Spoofing is a modern approach to attendance management that utilizes facial recognition technology enhanced with advanced security features to prevent cheating and proxy attendance. This system ensures that only the actual individual is physically present during attendance capture. It is presented by Ahmed Sheka, Malcom Kpundeh, and Nizamaddeen Umar. &nbsp; &bull; &nbsp; 
+            An AI Facial Smart Attendance System with Anti-Spoofing is a modern approach to attendance management that utilizes facial recognition technology enhanced with advanced security features to prevent cheating and proxy attendance. This system ensures that only the actual individual is physically present during attendance capture. It is presented by Ahmed Sheka, Malcom Kpundeh, and Nizamaddeen Umar.
+        </div>
+    </div>
+
+    <!-- Animated Floating Icons -->
+    <div class="floating-icons">
+        <i class="fas fa-user-graduate float-icon icon-1"></i>
+        <i class="fas fa-clock float-icon icon-2"></i>
+        <i class="fas fa-id-card float-icon icon-3"></i>
+        <i class="fas fa-check-circle float-icon icon-4"></i>
+        <i class="fas fa-book float-icon icon-5"></i>
+        <i class="fas fa-camera float-icon icon-6"></i>
+        <i class="fas fa-calendar-alt float-icon icon-7"></i>
+    </div>
+
+    <!-- Login Container -->
+    <div class="login-card-container">
+        <div class="card login-card animate-fade-in shadow-lg">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <div class="brand-icon-wrapper mb-3">
+                        <i class="fas fa-user-shield text-primary fa-3x"></i>
+                    </div>
+                    <h2 class="fw-bold text-dark">Smart Attendance</h2>
+                    <p class="text-muted">AI Facial Smart Attendance System</p>
                 </div>
-                <div class="mb-3 text-start">
-                    <label class="form-label">Password</label>
-                    <input type="password" name="password" class="form-control" placeholder="Enter your password" required>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="/login">
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Email Address</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0"><i class="fas fa-envelope text-muted"></i></span>
+                            <input type="email" name="email" class="form-control bg-light border-0 shadow-none" placeholder="name@school.edu" required>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0"><i class="fas fa-key text-muted"></i></span>
+                            <input type="password" name="password" class="form-control bg-light border-0 shadow-none" placeholder="Enter your password" required>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-sm hover-up">
+                         Sign In <i class="fas fa-arrow-right ms-2"></i>
+                    </button>
+                </form>
+
+                <div class="mt-4 text-center">
+                    <p class="mb-2">Don't have an account? <a href="/register" class="text-primary fw-bold text-decoration-none">Register Here</a></p>
+                    <a href="/student_portal" class="text-muted text-decoration-none small"><i class="fas fa-chevron-left me-1"></i> Back to portal</a>
                 </div>
-                <button type="submit" class="btn btn-primary w-100 rounded-pill">Login</button>
-            </form>
-            <div class="mt-3">
-                <p class="mb-1"><a href="/register" class="text-primary fw-bold">New Student? Register here</a></p>
-                <a href="/student_portal" class="text-muted"><small>Already have an account? Go to portal.</small></a>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Hide the sidebar Navigation on the Login Page -->
 <style>
+    /* Full Page Background */
+    body {
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+    }
+
+    .login-page-wrapper {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(rgba(44, 62, 80, 0.7), rgba(44, 62, 80, 0.7)), url('/static/images/login_bg.png');
+        background-size: cover;
+        background-position: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        overflow: hidden;
+    }
+
+    /* Marquee Styles */
+    .marquee-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background: rgba(0, 0, 0, 0.6); /* Darker background for high contrast */
+        backdrop-filter: blur(10px);
+        padding: 15px 0;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        z-index: 2000;
+        overflow: hidden;
+    }
+
+    .marquee-content {
+        display: inline-block;
+        white-space: nowrap;
+        color: #ffffff;
+        font-family: 'Outfit', sans-serif; /* High-clarity geometric font */
+        font-weight: 600;
+        font-size: 1.15rem;
+        letter-spacing: 0.8px;
+        padding-left: 100%;
+        animation: marquee 50s linear infinite;
+    }
+
+    @keyframes marquee {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-100%); }
+    }
+
+    /* Glassmorphism Card */
+    .login-card {
+        width: 100%;
+        max-width: 450px;
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 25px;
+        z-index: 10;
+    }
+
+    .input-group-text {
+        border-radius: 12px 0 0 12px;
+    }
+    .form-control {
+        border-radius: 0 12px 12px 0;
+        padding: 12px;
+    }
+
+    /* Floating Icons */
+    .floating-icons {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .float-icon {
+        position: absolute;
+        color: rgba(255, 255, 255, 0.15);
+        font-size: 3rem;
+        animation: float 15s infinite ease-in-out;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+        25% { transform: translate(100px, 50px) rotate(90deg); }
+        50% { transform: translate(50px, 150px) rotate(180deg); }
+        75% { transform: translate(-50px, 80px) rotate(270deg); }
+    }
+
+    .icon-1 { top: 10%; left: 10%; font-size: 5rem; animation-delay: 0s; }
+    .icon-2 { top: 70%; left: 15%; font-size: 4rem; animation-delay: 2s; }
+    .icon-3 { top: 20%; left: 80%; font-size: 6rem; animation-delay: 4s; }
+    .icon-4 { top: 80%; left: 75%; font-size: 3rem; animation-delay: 6s; }
+    .icon-5 { top: 40%; left: 5%; font-size: 4.5rem; animation-delay: 1s; }
+    .icon-6 { top: 5%; left: 50%; font-size: 3.5rem; animation-delay: 3s; }
+    .icon-7 { top: 60%; left: 85%; font-size: 4rem; animation-delay: 5s; }
+
+    /* Animations */
+    .animate-fade-in {
+        animation: fadeInScale 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes fadeInScale {
+        from { opacity: 0; transform: scale(0.9); }
+        to { opacity: 1; transform: scale(1); }
+    }
+
+    .hover-up:hover {
+        transform: translateY(-3px);
+        transition: transform 0.2s ease;
+    }
+
+    /* Hide Sidebar & Base Layout Padding */
     .sidebar { display: none !important; }
-    .main-content { padding-left: 0 !important; margin-left: 0 !important; width: 100%; max-width: 100%; flex: 0 0 100%; }
+    .main-content { 
+        padding-left: 0 !important; 
+        margin-left: 0 !important; 
+        width: 100%; 
+        max-width: 100%; 
+        flex: 0 0 100%; 
+        padding-top: 0 !important;
+    }
+    .container-fluid { padding: 0 !important; }
 </style>
 {% endblock %}

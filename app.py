@@ -366,6 +366,13 @@ def delete_course(course_id):
     flash(msg, "success" if success else "danger")
     return redirect(url_for('manage_courses'))
 
+@app.route('/delete_assignment/<int:assignment_id>')
+@role_required(['Admin'])
+def delete_assignment(assignment_id):
+    success, msg = database.delete_assignment(assignment_id)
+    flash(msg, "success" if success else "danger")
+    return redirect(url_for('manage_assignments'))
+
 @app.route('/assignments', methods=['GET', 'POST'])
 @role_required(['Admin'])
 def manage_assignments():
@@ -842,7 +849,8 @@ def export_pdf(report_type, course_id=None):
     if report_type not in ['daily', 'weekly', 'monthly']:
         return jsonify({"success": False, "message": "Invalid report type."}), 400
         
-    filepath = generate_pdf_report(report_type, course_id=course_id)
+    class_id = request.args.get('class_id', type=int)
+    filepath = generate_pdf_report(report_type, course_id=course_id, class_id=class_id)
     if filepath:
         return send_file(filepath, as_attachment=True)
     return jsonify({"success": False, "message": f"No data found for {report_type} report, or export failed."})
