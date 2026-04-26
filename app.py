@@ -471,7 +471,8 @@ def register():
         
         student = database.get_student(student_id)
         if student:
-            return jsonify({"success": False, "message": "Student ID already exists in the database."})
+            # Student already exists — allow recapture of face photos only (skip re-registration)
+            return jsonify({"success": True, "recapture": True, "message": "Student found. You can now recapture face photos and retrain the model."})
             
         return jsonify({"success": True, "message": "Details clear. Proceed to Face Capture."})
         

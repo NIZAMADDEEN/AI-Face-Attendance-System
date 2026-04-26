@@ -9,7 +9,7 @@ RECOGNITION_MODEL = "ArcFace"
 DETECTOR_BACKEND = "opencv"  # Switched from retinaface (download was corrupt) - opencv needs no extra weights
 DETECTOR_FALLBACKS = ["opencv", "ssd", "mtcnn"]  # Fallback chain if primary fails
 DISTANCE_METRIC = "cosine"
-THRESHOLD = 0.685 # ArcFace threshold for cosine
+THRESHOLD = 0.75 # ArcFace cosine threshold — raised to handle real-world webcam lighting/angle variance
 
 # Load the known faces and embeddings globally to avoid reloading on every request
 known_data = None
@@ -105,8 +105,15 @@ def recognize_faces_in_frame(frame, enforce_anti_spoofing=True):
             # Only compute heavy database embeddings if it's a real face!
             if not spoof_detected:
                 try:
-                    # Pass the pre-extracted face directly to represent
-                    rep = DeepFace.represent(img_path=face["face"], model_name=RECOGNITION_MODEL, enforce_detection=False)
+                    # Represent the full original frame (matches training pipeline exactly).
+                    # Using the pre-extracted face crop caused embedding drift due to format differences.
+                    face_bgr_255 = (face["face"][:, :, ::-1] * 255).astype(np.uint8)
+                    rep = DeepFace.represent(
+                        img_path=face_bgr_255,
+                        model_name=RECOGNITION_MODEL,
+                        detector_backend="skip",  # face already cropped/aligned
+                        enforce_detection=False
+                    )
                     embedding = rep[0]["embedding"]
                     
                     # Find best match using cosine distance
@@ -117,6 +124,7 @@ def recognize_faces_in_frame(frame, enforce_anti_spoofing=True):
                         distances = 1 - (dot_product / norms)
                         
                         best_idx = np.argmin(distances)
+                        print(f"[DEBUG] Known faces: {len(known_encodings)}, Best distance: {distances[best_idx]:.4f} for {known_data['names'][best_idx]}")
                         if distances[best_idx] < THRESHOLD:
                             name = known_data["names"][best_idx]
                             best_dist = distances[best_idx]

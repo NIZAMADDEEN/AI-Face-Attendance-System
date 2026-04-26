@@ -46,25 +46,7 @@ python -m venv venv2
 ```bash
 pip install -r requirements.txt
 ```
-
-### 4. Configure Environment Variables
-Copy the example environment file and update it with your actual credentials:
-```bash
-cp .env.example .env
-```
-Edit `.env` and provide:
-- `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
-- `EMAIL_ADDRESS`, `EMAIL_PASSWORD` (Gmail App Password)
-- `SECRET_KEY`
-
-### 5. System Configuration
-Copy the example config file:
-```bash
-cp config.example.json config.json
-```
-The system will automatically generate the required MySQL schema upon first run.
-
-### 6. Start the Application
+### 4. Start the Application
 ```bash
 python app.py
 ```

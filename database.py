@@ -228,7 +228,7 @@ def initialize_database():
     conn.commit()
     
     # Ensure Admin password is in sync with config.json
-    cursor.execute("SELECT * FROM users WHERE email = 'admin@geoface.com'")
+    cursor.execute("SELECT * FROM users WHERE email = 'malcom@gmail.com'")
     admin = cursor.fetchone()
     
     import os
@@ -249,13 +249,13 @@ def initialize_database():
         print("No Admin found. Creating default admin...")
         hashed_pw = generate_password_hash(admin_password)
         cursor.execute("INSERT INTO users (name, email, password, role) VALUES (%s, %s, %s, %s)", 
-                       ("System Admin", "admin@geoface.com", hashed_pw, "Admin"))
+                       ("System Admin", "malcom@gmail.com", hashed_pw, "Admin"))
         conn.commit()
     else:
         # Check if password needs update (sync with config)
         if not check_password_hash(admin['password'], admin_password):
             hashed_pw = generate_password_hash(admin_password)
-            cursor.execute("UPDATE users SET password = %s WHERE email = 'admin@geoface.com'", (hashed_pw,))
+            cursor.execute("UPDATE users SET password = %s WHERE email = 'malcom@gmail.com'", (hashed_pw,))
             conn.commit()
 
     # Hash legacy passwords if any
