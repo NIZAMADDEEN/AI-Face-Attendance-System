@@ -1138,6 +1138,8 @@ def get_teachers_by_class(class_id):
         return cursor.fetchall()
     finally:
         conn.close()
+
+def get_attendance_analytics(class_id, course_id):
     """
     Calculates comprehensive attendance analytics, marks, and recommendations
     for all students in a specific class and course.
