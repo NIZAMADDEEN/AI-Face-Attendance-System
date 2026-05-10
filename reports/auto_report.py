@@ -77,10 +77,10 @@ def export_today_csv(date_str=None):
     finally:
         conn.close()
 
-def generate_pdf_report(report_type, course_id=None, class_id=None):
+def generate_pdf_report(report_type=None, course_id=None, class_id=None, start_date=None, end_date=None):
     """
-    Generates a PDF report for daily, weekly, or monthly attendance.
-    Supports optional course-specific filtering.
+    Generates a PDF report for attendance marks.
+    Supports optional course-specific filtering and optional date range.
     """
     conn = database.get_connection()
     if not conn:
@@ -88,15 +88,29 @@ def generate_pdf_report(report_type, course_id=None, class_id=None):
         return None
         
     today = datetime.now().date()
-    if report_type == 'daily':
-        start_date = today
-    elif report_type == 'weekly':
-        start_date = today - timedelta(days=7)
-    elif report_type == 'monthly':
-        start_date = today - timedelta(days=30)
+    if start_date and end_date:
+        try:
+            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+        except ValueError:
+            print("Invalid start_date or end_date format. Expected YYYY-MM-DD.")
+            conn.close()
+            return None
+        if start_date > end_date:
+            start_date, end_date = end_date, start_date
     else:
-        conn.close()
-        return None
+        if report_type == 'daily':
+            start_date = today
+            end_date = today
+        elif report_type == 'weekly':
+            start_date = today - timedelta(days=7)
+            end_date = today
+        elif report_type == 'monthly':
+            start_date = today - timedelta(days=30)
+            end_date = today
+        else:
+            conn.close()
+            return None
         
     try:
         # Get course and class names if applicable
@@ -117,25 +131,35 @@ def generate_pdf_report(report_type, course_id=None, class_id=None):
             cursor.close()
 
         query = '''
-            SELECT DATE(a.timestamp) as Date, s.student_id_code as `Student ID`, u.name as Name,
-                   c.class_name as Class, co.course_name as Course,
-                   a.status as Status, l.entry_time as Entry, l.exit_time as `Exit`
+            SELECT 
+                s.student_id_code AS `Student ID`,
+                u.name AS Name,
+                co.course_name AS Course,
+                c.class_name AS Class,
+                COUNT(DISTINCT DATE(a.timestamp)) AS total_sessions,
+                SUM(CASE WHEN a.status IN ('Present', 'Late') THEN 1 ELSE 0 END) AS attended,
+                ROUND(
+                    CASE 
+                        WHEN COUNT(DISTINCT DATE(a.timestamp)) = 0 THEN 0
+                        ELSE SUM(CASE WHEN a.status IN ('Present', 'Late') THEN 1 ELSE 0 END) / COUNT(DISTINCT DATE(a.timestamp)) * 100
+                    END, 1
+                ) AS percentage
             FROM attendance a
             JOIN students s ON a.student_id_code = s.student_id_code
             JOIN users u ON s.user_id = u.id
             LEFT JOIN classes c ON s.class_id = c.id
             LEFT JOIN courses co ON a.course_id = co.id
-            LEFT JOIN attendance_logs l ON a.student_id_code = l.student_id_code 
-                                       AND DATE(a.timestamp) = l.date 
-                                       AND a.course_id = l.course_id
             WHERE DATE(a.timestamp) >= %s AND DATE(a.timestamp) <= %s
         '''
-        params = [start_date, today]
+        params = [start_date, end_date]
         if course_id:
             query += " AND a.course_id = %s"
             params.append(course_id)
-            
-        query += " ORDER BY a.timestamp DESC, u.name ASC"
+        if class_id:
+            query += " AND s.class_id = %s"
+            params.append(class_id)
+        query += " GROUP BY s.student_id_code, u.name, co.course_name, c.class_name"
+        query += " ORDER BY u.name ASC"
         
         df = pd.read_sql(query, conn, params=tuple(params))
         
@@ -147,12 +171,15 @@ def generate_pdf_report(report_type, course_id=None, class_id=None):
             os.makedirs(EXPORT_DIR)
             
         # Unique filename to avoid browser caching
+        if start_date == end_date:
+            date_label = start_date.strftime('%Y-%m-%d')
+        else:
+            date_label = f"{start_date.strftime('%Y-%m-%d')}_to_{end_date.strftime('%Y-%m-%d')}"
+        filename_parts = [f"Attendance_{date_label}"]
         if course_name:
             clean_name = "".join(x for x in course_name if x.isalnum() or x in " _-").strip()
-            filename = f"Attendance_{clean_name}_{report_type.capitalize()}_{today}.pdf"
-        else:
-            filename = f"Attendance_{report_type.capitalize()}_{today}.pdf"
-            
+            filename_parts.insert(1, clean_name)
+        filename = "_".join(filename_parts) + ".pdf"
         filepath = os.path.join(EXPORT_DIR, filename)
         
         from reportlab.lib.pagesizes import landscape
@@ -161,9 +188,7 @@ def generate_pdf_report(report_type, course_id=None, class_id=None):
         
         styles = getSampleStyleSheet()
         
-        # Heading Styles with Equal Spacing (Leading)
         heading_leading = 22
-        
         title_style = ParagraphStyle(
             name='ReportTitle',
             alignment=TA_CENTER,
@@ -172,30 +197,25 @@ def generate_pdf_report(report_type, course_id=None, class_id=None):
             textColor=colors.black,
             fontName='Helvetica-Bold'
         )
-        
         course_style = ParagraphStyle(
             name='CenterCourse',
             alignment=TA_CENTER,
-            fontSize=18,
+            fontSize=14,
             leading=heading_leading,
             textColor=colors.black,
             fontName='Helvetica-Bold'
         )
-        
         date_style = ParagraphStyle(
             name='CenterDate',
             alignment=TA_CENTER,
-            fontSize=13,
+            fontSize=12,
             leading=heading_leading,
             textColor=colors.black,
-            fontName='Helvetica-Oblique', # Italic in ReportLab
-            spaceAfter=25
+            fontName='Helvetica-Oblique',
+            spaceAfter=20
         )
         
-        # 1. Main Title
-        elements.append(Paragraph("Attendance Report", title_style))
-        
-        # 2. Class & Course Name
+        elements.append(Paragraph("Attendance Summary Report", title_style))
         header_text = ""
         if class_name and course_name:
             header_text = f"Class: {class_name} | Course: {course_name}"
@@ -204,35 +224,31 @@ def generate_pdf_report(report_type, course_id=None, class_id=None):
         elif class_name:
             header_text = f"Class: {class_name}"
         else:
-            header_text = "Detailed Summary"
-            
+            header_text = "Attendance Summary"
         elements.append(Paragraph(header_text, course_style))
-            
-        # 3. Date Range (Italic)
-        date_subtitle = f"({start_date} to {today})"
-        elements.append(Paragraph(date_subtitle, date_style))
+        elements.append(Paragraph(f"({start_date} to {end_date})", date_style))
         
-        # Format DataFrame
-        def calc_time(row):
-            if pd.notnull(row['Entry']) and pd.notnull(row['Exit']):
-                diff = row['Exit'] - row['Entry']
-                secs = diff.total_seconds()
-                h = int(secs // 3600)
-                m = int((secs % 3600) // 60)
-                return f"{h}h {m}m"
-            return ""
-            
-        df['Time Spent'] = df.apply(calc_time, axis=1)
+        def attendance_mark(percentage):
+            if percentage >= 90:
+                return 10
+            if percentage >= 80:
+                return 8
+            if percentage >= 70:
+                return 6
+            if percentage >= 60:
+                return 4
+            return 0
         
+        df['Attendance %'] = df['percentage']
+        df['Attendance Mark'] = df['percentage'].apply(attendance_mark)
+        df = df.rename(columns={
+            'total_sessions': 'Total Sessions',
+            'attended': 'Attended'
+        })
+        df = df[['Student ID', 'Name', 'Course', 'Class', 'Total Sessions', 'Attended', 'Attendance %', 'Attendance Mark']]
         df = df.fillna('')
-        if 'Entry' in df.columns:
-            df['Entry'] = df['Entry'].astype(str).str.replace('0 days ', '')
-        if 'Exit' in df.columns:
-            df['Exit'] = df['Exit'].astype(str).str.replace('0 days ', '')
-        df['Date'] = df['Date'].astype(str)
         
         data = [df.columns.tolist()] + df.values.tolist()
-        
         table = Table(data, repeatRows=1)
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
@@ -244,10 +260,9 @@ def generate_pdf_report(report_type, course_id=None, class_id=None):
             ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ecf0f1')),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ]))
-        
         elements.append(table)
-        doc.build(elements)
         
+        doc.build(elements)
         print(f"Successfully generated PDF report at {filepath}")
         return os.path.abspath(filepath)
         

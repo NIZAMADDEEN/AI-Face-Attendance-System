@@ -846,15 +846,47 @@ def export_report():
 @app.route('/api/export_pdf/<report_type>/<int:course_id>')
 @role_required(['Admin', 'Teacher'])
 def export_pdf(report_type, course_id=None):
-    """Generates and returns export path for attendance PDF (daily/weekly/monthly)"""
+    """Generates and returns export path for attendance PDF using a date range or default period."""
     if report_type not in ['daily', 'weekly', 'monthly']:
         return jsonify({"success": False, "message": "Invalid report type."}), 400
         
     class_id = request.args.get('class_id', type=int)
-    filepath = generate_pdf_report(report_type, course_id=course_id, class_id=class_id)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    filepath = generate_pdf_report(
+        report_type,
+        course_id=course_id,
+        class_id=class_id,
+        start_date=start_date,
+        end_date=end_date
+    )
     if filepath:
         return send_file(filepath, as_attachment=True)
     return jsonify({"success": False, "message": f"No data found for {report_type} report, or export failed."})
+
+@app.route('/api/export_pdf_range')
+@role_required(['Admin', 'Teacher'])
+def export_pdf_range():
+    """Generates and returns attendance PDF for a custom date range."""
+    course_id = request.args.get('course_id', type=int)
+    class_id = request.args.get('class_id', type=int)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    if not start_date or not end_date:
+        return jsonify({"success": False, "message": "Please provide both start_date and end_date."}), 400
+
+    filepath = generate_pdf_report(
+        'daily',
+        course_id=course_id,
+        class_id=class_id,
+        start_date=start_date,
+        end_date=end_date
+    )
+    if filepath:
+        return send_file(filepath, as_attachment=True)
+    return jsonify({"success": False, "message": "No data found for the selected date range, or export failed."}), 404
 
 @app.route('/profile')
 @role_required(['Admin', 'Teacher', 'Student'])

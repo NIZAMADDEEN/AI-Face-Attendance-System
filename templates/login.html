@@ -10,7 +10,7 @@
     <div class="marquee-container">
         <div class="marquee-content">
             An AI Facial Smart Attendance System with Anti-Spoofing is a modern approach to attendance management that utilizes facial recognition technology enhanced with advanced security features to prevent cheating and proxy attendance. This system ensures that only the actual individual is physically present during attendance capture. It is presented by Ahmed Sheka, Malcom Kpundeh, and Nizamaddeen Umar. &nbsp; &bull; &nbsp; 
-            An AI Facial Smart Attendance System with Anti-Spoofing is a modern approach to attendance management that utilizes facial recognition technology enhanced with advanced security features to prevent cheating and proxy attendance. This system ensures that only the actual individual is physically present during attendance capture. It is presented by Ahmed Sheka, Malcom Kpundeh, and Nizamaddeen Umar.
+            
         </div>
     </div>
 
@@ -86,20 +86,31 @@
         overflow-x: hidden;
     }
 
+    html, body {
+        min-height: 100%;
+    }
     .login-page-wrapper {
         position: fixed;
         top: 0;
         left: 0;
         width: 100vw;
-        height: 100vh;
+        min-height: 100vh;
         background: linear-gradient(rgba(44, 62, 80, 0.7), rgba(44, 62, 80, 0.7)), url('/static/images/login_bg.png');
         background-size: cover;
         background-position: center;
         display: flex;
         justify-content: center;
-        align-items: center;
+        align-items: flex-start;
+        padding-top: 40px;
         z-index: 1000;
-        overflow: hidden;
+        overflow: auto;
+    }
+
+    .login-card-container {
+        width: 100%;
+        max-width: 450px;
+        padding: 20px;
+        margin-top: 10px;
     }
 
     /* Marquee Styles */

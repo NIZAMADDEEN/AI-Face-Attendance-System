@@ -38,27 +38,19 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom px-4">
     <h1 class="h2">Dashboard {{ session.name }}</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
-        <!-- Session Control -->
+        <!-- Date Range for PDF Export -->
         <div class="input-group input-group-sm me-3">
-            <span class="input-group-text"><i class="fas fa-clock"></i> Session</span>
-            <input type="time" class="form-control" id="startTime" title="Start Time">
-            <input type="time" class="form-control" id="stopTime" title="Stop Time">
-            <button class="btn btn-outline-primary" type="button" onclick="updateSessionInfo()">Set</button>
+            <span class="input-group-text"><i class="fas fa-calendar-alt"></i> From</span>
+            <input type="date" class="form-control" id="startDate" title="Start Date">
+            <span class="input-group-text"><i class="fas fa-calendar-alt"></i> To</span>
+            <input type="date" class="form-control" id="endDate" title="End Date">
         </div>
         
-        <div class="dropdown me-2">
-            <button class="btn btn-sm btn-outline-danger dropdown-toggle" type="button" id="pdfDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="fas fa-file-pdf"></i> Export PDF
+        <div class="me-2">
+            <button class="btn btn-sm btn-outline-danger" type="button" onclick="exportPDF(null, null)">
+                <i class="fas fa-file-pdf"></i> Generate Attendance Score
             </button>
-            <ul class="dropdown-menu" aria-labelledby="pdfDropdown">
-                <li><a class="dropdown-item" href="#" onclick="exportPDF('daily')">Daily Report</a></li>
-                <li><a class="dropdown-item" href="#" onclick="exportPDF('weekly')">Weekly Report</a></li>
-                <li><a class="dropdown-item" href="#" onclick="exportPDF('monthly')">Monthly Report</a></li>
-            </ul>
         </div>
-        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportReport()">
-            <i class="fas fa-file-csv"></i> Export Today's CSV
-        </button>
     </div>
 </div>
 
@@ -149,16 +141,9 @@
                         <a href="{{ url_for('view_students', class_id=assgn.class_id, course_id=assgn.course_id) }}" class="btn btn-sm btn-outline-info">
                             <i class="fas fa-users me-2"></i> View Registered Students
                         </a>
-                        <div class="dropdown d-grid">
-                            <button class="btn btn-sm btn-outline-danger dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fas fa-file-pdf me-2"></i> Generate Report
-                            </button>
-                            <ul class="dropdown-menu shadow w-100 border-0">
-                                <li><a class="dropdown-item py-2" href="#" onclick="exportPDF('daily', {{ assgn.course_id }}, {{ assgn.class_id }})"><i class="fas fa-calendar-day me-2 text-danger"></i> Daily Report</a></li>
-                                <li><a class="dropdown-item py-2" href="#" onclick="exportPDF('weekly', {{ assgn.course_id }}, {{ assgn.class_id }})"><i class="fas fa-calendar-week me-2 text-primary"></i> Weekly Report</a></li>
-                                <li><a class="dropdown-item py-2" href="#" onclick="exportPDF('monthly', {{ assgn.course_id }}, {{ assgn.class_id }})"><i class="fas fa-calendar-alt me-2 text-success"></i> Monthly Report</a></li>
-                            </ul>
-                        </div>
+                        <button class="btn btn-sm btn-outline-danger" type="button" onclick="exportPDF({{ assgn.course_id }}, {{ assgn.class_id }})">
+                            <i class="fas fa-file-pdf me-2"></i> Generate Marks PDF
+                        </button>
                         <a href="{{ url_for('view_attendance', class_id=assgn.class_id, course_id=assgn.course_id) }}" class="btn btn-primary mt-2">
                             <i class="fas fa-clipboard-list me-2"></i> View Records
                         </a>
@@ -196,57 +181,57 @@ function exportReport() {
         });
 }
 
-function exportPDF(reportType, courseId = null, classId = null) {
-    let url = `/api/export_pdf/${reportType}`;
-    if (courseId) {
-        url += `/${courseId}`;
-    }
-    if (classId) {
-        url += `?class_id=${classId}`;
+function exportPDF(courseId = null, classId = null) {
+    const start = document.getElementById('startDate').value;
+    const end = document.getElementById('endDate').value;
+
+    if (!start || !end) {
+        alert("Please select both a start date and end date before exporting.");
+        return;
     }
 
-    fetch(url)
+    if (new Date(start) > new Date(end)) {
+        alert("Start date cannot be after end date.");
+        return;
+    }
+
+    const params = new URLSearchParams({ start_date: start, end_date: end });
+    if (courseId) {
+        params.append('course_id', courseId);
+    }
+    if (classId) {
+        params.append('class_id', classId);
+    }
+
+    const url = `/api/export_pdf_range?${params.toString()}`;
+
+    fetch(url, { credentials: 'same-origin' })
         .then(res => {
-            if (res.headers.get('content-type').includes('application/json')) {
-                return res.json().then(data => alert("PDF Generation failed: " + data.message));
+            const contentType = res.headers.get('content-type') || '';
+            if (!res.ok) {
+                if (contentType.includes('application/json')) {
+                    return res.json().then(data => { throw new Error(data.message || 'PDF export failed'); });
+                }
+                return res.text().then(text => { throw new Error(text || 'PDF export failed'); });
             }
+
+            if (!contentType.includes('application/pdf')) {
+                return res.text().then(text => { throw new Error('Unexpected response from server: ' + text); });
+            }
+
             return res.blob().then(blob => {
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `Attendance_${reportType}.pdf`;
+                a.download = `Attendance_Marks_${start}_to_${end}.pdf`;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
                 window.URL.revokeObjectURL(url);
             });
         }).catch(err => {
-            alert("Error downloading PDF: " + err);
+            alert("Error downloading PDF: " + err.message);
         });
-}
-
-function updateSessionInfo() {
-    const start = document.getElementById('startTime').value;
-    const stop = document.getElementById('stopTime').value;
-    
-    if (!start || !stop) {
-        alert("Please set both start and stop times.");
-        return;
-    }
-
-    fetch('/api/update_session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ start_time: start + ":00", stop_time: stop + ":00" })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            alert("Session times updated successfully!");
-        } else {
-            alert("Failed to update: " + data.message);
-        }
-    });
 }
 
 
