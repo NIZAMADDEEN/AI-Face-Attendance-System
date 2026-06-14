@@ -12,7 +12,9 @@
             <input type="time" class="form-control" id="stopTime" title="Stop Time">
             <button class="btn btn-outline-primary" type="button" onclick="updateSessionInfo()">Set</button>
         </div>
-        
+        <button class="btn btn-sm btn-warning me-2" type="button" onclick="retrainModel()">
+            <i class="fas fa-sync-alt"></i> Retrain Model
+        </button>
         <div class="dropdown me-2">
             <button class="btn btn-sm btn-danger dropdown-toggle" type="button" id="adminReportsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="fas fa-file-export"></i> System Reports
@@ -139,6 +141,30 @@ function updateSessionInfo() {
         } else {
             alert("Failed to update: " + data.message);
         }
+    });
+}
+
+function retrainModel() {
+    if(!confirm("Are you sure you want to retrain the face recognition model? This may take a moment.")) return;
+    
+    const btn = document.querySelector('button[onclick="retrainModel()"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Retraining...';
+    btn.disabled = true;
+
+    fetch('/api/train', { method: 'POST' })
+    .then(res => res.json())
+    .then(data => {
+        if(data.success) {
+            alert("Model retrained successfully.");
+        } else {
+            alert("Retraining failed: " + data.message);
+        }
+    })
+    .catch(err => alert("Error: " + err))
+    .finally(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     });
 }
 
